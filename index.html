@@ -1,0 +1,2381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#fef9f3">
+<title>今日投喂 · 专属点单</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+/* ============================================================
+   CSS Custom Properties
+   ============================================================ */
+:root {
+  --bg-primary: #fef9f3;
+  --bg-secondary: #faf4eb;
+  --bg-tertiary: #f5eddf;
+  --bg-input: #ffffff;
+  --bg-overlay: rgba(0,0,0,0.4);
+  --border-subtle: #e8dccf;
+  --border-active: #d4879a;
+
+  --text-primary: #4a3728;
+  --text-secondary: #8c7b6e;
+  --text-muted: #b8a99a;
+  --text-accent: #c8756a;
+
+  --accent-wine: #d4879a;
+  --accent-wine-hover: #e8a0b4;
+  --accent-wine-light: rgba(212,135,154,0.15);
+  --accent-gold: #c8756a;
+  --accent-gold-dim: #b5655d;
+  --accent-gold-light: rgba(200,117,106,0.12);
+
+  --success: #7ba587;
+  --success-light: rgba(123,165,135,0.15);
+  --warning: #d4a574;
+  --warning-light: rgba(212,165,116,0.15);
+  --danger: #c97b84;
+  --danger-light: rgba(201,123,132,0.15);
+  --info: #8ba4c9;
+  --info-light: rgba(139,164,201,0.15);
+
+  --space-xs: 4px;  --space-sm: 8px;  --space-md: 16px;
+  --space-lg: 24px; --space-xl: 32px; --space-2xl: 48px;
+
+  --font-display: 'Playfair Display', 'Noto Serif SC', serif;
+  --font-body: 'Inter', 'Noto Sans SC', sans-serif;
+
+  --radius-sm: 6px; --radius-md: 12px; --radius-lg: 20px; --radius-full: 9999px;
+
+  --shadow-card: 0 2px 12px rgba(0,0,0,0.06);
+  --shadow-elevated: 0 8px 32px rgba(0,0,0,0.12);
+  --shadow-gold: 0 0 20px rgba(200,117,106,0.12);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
+}
+
+/* ============================================================
+   Reset & Base
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: antialiased; }
+body {
+  font-family: var(--font-body);
+  background: #f0e8da;
+  color: var(--text-primary);
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow-x: hidden;
+}
+#app {
+  width: 100%;
+  max-width: 480px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg-primary);
+  position: relative;
+  overflow-x: hidden;
+  box-shadow: 0 0 60px rgba(0,0,0,0.1);
+}
+input, textarea, select, button { font-family: inherit; font-size: inherit; outline: none; border: none; }
+button { cursor: pointer; background: none; color: inherit; }
+img { max-width: 100%; display: block; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 4px; }
+
+/* ============================================================
+   Header
+   ============================================================ */
+.header {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(254,249,243,0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: var(--space-md) var(--space-lg);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-md);
+}
+.header-brand {
+  display: flex; align-items: center; gap: var(--space-sm);
+}
+.header-logo {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--accent-wine), #e8a0b4);
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+.header-title {
+  font-family: var(--font-display);
+  font-size: 1.1rem; font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.header-actions { display: flex; align-items: center; gap: var(--space-sm); }
+.header-btn {
+  width: 40px; height: 40px; border-radius: var(--radius-full);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; color: var(--text-secondary);
+  transition: all var(--duration-fast) var(--ease-out);
+  position: relative;
+}
+.header-btn:hover, .header-btn:active { color: var(--text-primary); background: var(--bg-tertiary); }
+.header-btn.active { color: var(--accent-gold); }
+.badge-dot {
+  position: absolute; top: 6px; right: 6px;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  background: var(--accent-wine); color: #fff;
+  font-size: 0.65rem; font-weight: 700;
+  border-radius: var(--radius-full);
+  display: flex; align-items: center; justify-content: center;
+  line-height: 1;
+  animation: pulse-badge 2s ease-in-out infinite;
+}
+.badge-dot:empty { display: none; }
+@keyframes pulse-badge {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+/* WebSocket status dot */
+.ws-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  margin-left: 2px;
+  flex-shrink: 0;
+  transition: background var(--duration-normal) var(--ease-out);
+}
+.ws-dot.connected { background: var(--success); }
+.ws-dot.disconnected { background: var(--danger); }
+
+/* ============================================================
+   Main Layout
+   ============================================================ */
+.main-content {
+  padding: var(--space-md) var(--space-lg);
+  padding-bottom: 100px;
+}
+
+/* ============================================================
+   Category Tabs
+   ============================================================ */
+.cat-tabs {
+  display: flex; gap: var(--space-sm);
+  padding: var(--space-sm) 0 var(--space-md);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.cat-tabs::-webkit-scrollbar { display: none; }
+.cat-tab {
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-full);
+  font-size: 0.875rem; font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  white-space: nowrap;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.cat-tab:hover { color: var(--text-primary); border-color: var(--border-active); }
+.cat-tab.active {
+  background: var(--accent-wine);
+  border-color: var(--accent-wine);
+  color: #fff;
+}
+
+/* ============================================================
+   Random Picker
+   ============================================================ */
+.random-picker { padding-bottom: var(--space-md); }
+.random-btn {
+  width: 100%; padding: 14px 20px;
+  background: linear-gradient(135deg, rgba(212,168,75,0.12), rgba(212,168,75,0.05));
+  border: 1px dashed var(--accent-gold-dim);
+  border-radius: var(--radius-md);
+  font-size: 1rem; font-weight: 600;
+  color: var(--accent-gold);
+  display: flex; align-items: center; justify-content: center; gap: var(--space-sm);
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+  position: relative; overflow: hidden;
+}
+.random-btn::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
+  transform: translateX(-100%);
+}
+.random-btn:hover::before { animation: shimmer 1.5s infinite; }
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+.random-btn:hover {
+  border-color: var(--accent-gold);
+  background: linear-gradient(135deg, rgba(212,168,75,0.2), rgba(212,168,75,0.08));
+  box-shadow: 0 0 24px rgba(212,168,75,0.15);
+  transform: translateY(-1px);
+}
+.random-btn:active { transform: scale(0.97); }
+.random-dice { font-size: 1.4rem; animation: dice-idle 3s ease-in-out infinite; }
+@keyframes dice-idle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-10deg); }
+  75% { transform: rotate(10deg); }
+}
+.random-sparkle { font-size: 0.9rem; }
+.random-shuffling .random-dice { animation: dice-roll 0.6s ease-out; }
+@keyframes dice-roll {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.3); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+/* random result card */
+.random-result-card {
+  background: var(--bg-tertiary);
+  border: 2px solid var(--accent-gold);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-md);
+  text-align: center;
+  animation: result-pop 0.4s var(--ease-out);
+  display: none;
+}
+.random-result-card.show { display: block; }
+@keyframes result-pop {
+  from { opacity: 0; transform: scale(0.8) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.random-result-emoji { font-size: 3rem; margin-bottom: var(--space-sm); }
+.random-result-name {
+  font-family: var(--font-display); font-size: 1.3rem; font-weight: 700;
+  color: var(--accent-gold); margin-bottom: 4px;
+}
+.random-result-meta {
+  font-size: 0.85rem; color: var(--text-secondary);
+  margin-bottom: var(--space-sm);
+}
+.random-result-price {
+  font-size: 1.4rem; font-weight: 700; color: var(--accent-gold);
+  margin-bottom: var(--space-md);
+}
+.random-result-price::before { content: '¥'; font-size: 0.8rem; margin-right: 2px; }
+.random-result-actions {
+  display: flex; gap: var(--space-sm); justify-content: center;
+}
+.btn-random-action {
+  padding: 10px 24px; border-radius: var(--radius-full);
+  font-size: 0.9rem; font-weight: 600;
+  transition: all var(--duration-fast) var(--ease-out);
+  display: flex; align-items: center; gap: 6px;
+}
+.btn-random-pickit {
+  background: var(--accent-gold); color: #1a1a1a;
+}
+.btn-random-pickit:hover { filter: brightness(1.15); transform: translateY(-1px); }
+.btn-random-reroll {
+  background: var(--bg-secondary); color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+.btn-random-reroll:hover { border-color: var(--text-muted); color: var(--text-primary); }
+
+/* ============================================================
+   Menu Grid
+   ============================================================ */
+.menu-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+}
+.menu-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: all var(--duration-normal) var(--ease-out);
+  cursor: pointer;
+}
+.menu-card:hover { border-color: var(--border-active); transform: translateY(-2px); box-shadow: var(--shadow-card); }
+.menu-card:active { transform: scale(0.98); }
+.menu-card.dimmed { opacity: 0.4; pointer-events: none; }
+.card-img {
+  width: 100%; aspect-ratio: 4/3;
+  object-fit: cover;
+  background: var(--bg-tertiary);
+  position: relative;
+}
+.card-img-placeholder {
+  width: 100%; aspect-ratio: 4/3;
+  background: linear-gradient(135deg, var(--bg-tertiary), #252540);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 3rem;
+}
+.card-body { padding: var(--space-sm) var(--space-md) var(--space-md); }
+.card-name {
+  font-size: 0.95rem; font-weight: 600;
+  margin-bottom: 2px;
+  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.card-desc {
+  font-size: 0.75rem; color: var(--text-muted);
+  margin-bottom: var(--space-sm);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.2em;
+}
+.card-footer {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-price {
+  font-size: 1.1rem; font-weight: 700;
+  color: var(--accent-gold);
+  font-family: var(--font-display);
+}
+.card-price::before { content: '¥'; font-size: 0.7rem; margin-right: 1px; opacity: 0.8; }
+.btn-add {
+  width: 32px; height: 32px; border-radius: var(--radius-full);
+  background: var(--accent-wine);
+  color: #fff; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--duration-fast) var(--ease-out);
+  flex-shrink: 0;
+}
+.btn-add:hover { background: var(--accent-wine-hover); transform: scale(1.1); }
+.btn-add:active { transform: scale(0.9); }
+
+/* ============================================================
+   Management Tabs
+   ============================================================ */
+.mgmt-tabs {
+  display: flex; gap: 0;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  margin-bottom: var(--space-lg);
+  border: 1px solid var(--border-subtle);
+}
+.mgmt-tab {
+  flex: 1; text-align: center;
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.875rem; font-weight: 500;
+  color: var(--text-secondary);
+  border-radius: calc(var(--radius-md) - 3px);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.mgmt-tab.active {
+  background: var(--accent-wine);
+  color: #fff;
+}
+
+/* ============================================================
+   Filter Pills (Order Status)
+   ============================================================ */
+.filter-pills {
+  display: flex; gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.filter-pills::-webkit-scrollbar { display: none; }
+.filter-pill {
+  padding: 6px 16px;
+  border-radius: var(--radius-full);
+  font-size: 0.8rem; font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  white-space: nowrap;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.filter-pill.active {
+  background: var(--info-light);
+  border-color: var(--info);
+  color: var(--info);
+}
+.filter-pill.count-new.active { background: var(--danger-light); border-color: var(--danger); color: var(--danger); }
+.filter-pill.count-progress.active { background: var(--warning-light); border-color: var(--warning); color: var(--warning); }
+.filter-pill.count-done.active { background: var(--success-light); border-color: var(--success); color: var(--success); }
+
+/* ============================================================
+   Order Cards (Management)
+   ============================================================ */
+.order-list { display: flex; flex-direction: column; gap: var(--space-md); }
+.order-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  transition: all var(--duration-normal) var(--ease-out);
+}
+.order-card.new-order { border-color: var(--danger); animation: glow-new 2s ease-in-out infinite; }
+@keyframes glow-new {
+  0%, 100% { box-shadow: 0 0 0 rgba(192,57,43,0); }
+  50% { box-shadow: 0 0 20px rgba(192,57,43,0.2); }
+}
+.order-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: var(--space-sm);
+}
+.order-id { font-size: 0.75rem; color: var(--text-muted); font-family: monospace; }
+.order-time { font-size: 0.75rem; color: var(--text-muted); }
+.order-status {
+  font-size: 0.7rem; font-weight: 600; padding: 3px 10px;
+  border-radius: var(--radius-full); letter-spacing: 0.5px;
+}
+.status-new { background: var(--danger-light); color: var(--danger); }
+.status-accepted { background: var(--warning-light); color: var(--warning); }
+.status-completed { background: var(--success-light); color: var(--success); }
+.status-cancelled { background: var(--bg-tertiary); color: var(--text-muted); }
+
+.order-items { margin-bottom: var(--space-sm); }
+.order-item-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 0; font-size: 0.875rem;
+}
+.order-item-name { flex: 1; }
+.order-item-qty { color: var(--text-muted); margin: 0 var(--space-sm); }
+.order-item-price { color: var(--accent-gold); font-weight: 600; white-space: nowrap; }
+.order-item-note {
+  font-size: 0.7rem; color: var(--accent-gold-dim);
+  margin-left: var(--space-md); font-style: italic;
+}
+.order-note {
+  font-size: 0.75rem; color: var(--text-muted);
+  padding: var(--space-xs) 0; border-top: 1px solid var(--border-subtle);
+  margin-bottom: var(--space-sm);
+}
+.order-total {
+  font-size: 1.1rem; font-weight: 700; color: var(--accent-gold);
+  text-align: right; padding-top: var(--space-sm);
+  border-top: 1px solid var(--border-subtle);
+}
+.order-actions { display: flex; gap: var(--space-sm); margin-top: var(--space-sm); }
+.btn-sm {
+  padding: 6px 16px; border-radius: var(--radius-sm);
+  font-size: 0.8rem; font-weight: 600;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.btn-accept { background: var(--info); color: #fff; }
+.btn-accept:hover { filter: brightness(1.2); }
+.btn-complete { background: var(--success); color: #fff; }
+.btn-complete:hover { filter: brightness(1.2); }
+.btn-cancel { background: var(--bg-tertiary); color: var(--text-muted); }
+.btn-cancel:hover { background: var(--danger); color: #fff; }
+.btn-reorder { background: var(--accent-wine); color: #fff; }
+.btn-reorder:hover { background: var(--accent-wine-hover); }
+
+/* ============================================================
+   Menu Management List
+   ============================================================ */
+.menu-mgmt-list { display: flex; flex-direction: column; gap: var(--space-sm); }
+.menu-mgmt-item {
+  display: flex; align-items: center; gap: var(--space-md);
+  background: var(--bg-secondary); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md); padding: var(--space-sm) var(--space-md);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.menu-mgmt-item:hover { border-color: var(--border-active); }
+.menu-mgmt-item.offline { opacity: 0.4; }
+.menu-mgmt-img {
+  width: 56px; height: 56px; border-radius: var(--radius-sm);
+  object-fit: cover; background: var(--bg-tertiary); flex-shrink: 0;
+}
+.menu-mgmt-img-placeholder {
+  width: 56px; height: 56px; border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; flex-shrink: 0;
+}
+.menu-mgmt-info { flex: 1; min-width: 0; }
+.menu-mgmt-name { font-size: 0.9rem; font-weight: 600; margin-bottom: 2px; }
+.menu-mgmt-meta {
+  font-size: 0.75rem; color: var(--text-muted);
+  display: flex; gap: var(--space-sm);
+}
+.menu-mgmt-price { color: var(--accent-gold); font-weight: 600; }
+.menu-mgmt-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.btn-icon {
+  width: 32px; height: 32px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: var(--text-secondary);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.btn-icon:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.btn-icon.danger:hover { background: var(--danger-light); color: var(--danger); }
+
+/* ============================================================
+   FAB (Add Button)
+   ============================================================ */
+.fab {
+  position: fixed; bottom: 24px; right: 24px;
+  width: 52px; height: 52px; border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--accent-wine), #e8a0b4);
+  color: #fff; font-size: 22px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--shadow-elevated);
+  z-index: 50;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.fab:hover { transform: scale(1.1); }
+.fab:active { transform: scale(0.9); }
+
+/* ============================================================
+   Cart Panel (Off-canvas)
+   ============================================================ */
+.cart-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: var(--bg-overlay);
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--duration-normal) var(--ease-out);
+}
+.cart-overlay.open { opacity: 1; pointer-events: auto; }
+.cart-panel {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: min(85vw, 380px); max-width: 100%;
+  background: var(--bg-primary);
+  border-left: 1px solid var(--border-subtle);
+  z-index: 201;
+  display: flex; flex-direction: column;
+  transform: translateX(100%);
+  transition: transform var(--duration-slow) var(--ease-out);
+  box-shadow: var(--shadow-elevated);
+}
+.cart-panel.open { transform: translateX(0); }
+
+.cart-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.cart-title { font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; }
+.cart-close {
+  width: 36px; height: 36px; border-radius: var(--radius-full);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-secondary); font-size: 20px;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.cart-close:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+
+.cart-items {
+  flex: 1; overflow-y: auto; padding: var(--space-md) var(--space-lg);
+}
+.cart-item {
+  display: flex; align-items: center; gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.cart-item-info { flex: 1; min-width: 0; }
+.cart-item-name { font-size: 0.9rem; font-weight: 500; margin-bottom: 2px; }
+.cart-item-price { font-size: 0.8rem; color: var(--accent-gold); }
+.cart-item-note-input {
+  margin-top: 4px; width: 100%; padding: 4px 8px;
+  background: var(--bg-input); color: var(--text-primary);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+  font-size: 0.7rem;
+}
+.cart-item-note-input::placeholder { color: var(--text-muted); font-size: 0.7rem; }
+.cart-item-note-input:focus { border-color: var(--border-active); }
+
+.qty-control {
+  display: flex; align-items: center; gap: 4px;
+  flex-shrink: 0;
+}
+.qty-btn {
+  width: 28px; height: 28px; border-radius: var(--radius-full);
+  background: var(--bg-tertiary); color: var(--text-secondary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; transition: all var(--duration-fast) var(--ease-out);
+}
+.qty-btn:hover { background: var(--accent-wine); color: #fff; }
+.qty-num { font-size: 0.9rem; font-weight: 600; min-width: 24px; text-align: center; }
+.cart-item-subtotal {
+  font-size: 0.9rem; font-weight: 700; color: var(--accent-gold);
+  min-width: 50px; text-align: right;
+}
+
+.cart-footer {
+  padding: var(--space-md) var(--space-lg);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-primary);
+}
+.cart-note {
+  width: 100%; padding: var(--space-sm) var(--space-md);
+  background: var(--bg-input); color: var(--text-primary);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+  font-size: 0.8rem; margin-bottom: var(--space-sm); resize: none;
+}
+.cart-note::placeholder { color: var(--text-muted); }
+.cart-note:focus { border-color: var(--border-active); }
+.cart-summary {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: var(--space-sm);
+}
+.cart-summary-label { font-size: 0.9rem; color: var(--text-secondary); }
+.cart-summary-total {
+  font-size: 1.4rem; font-weight: 700; color: var(--accent-gold);
+  font-family: var(--font-display);
+}
+.cart-summary-total::before { content: '¥'; font-size: 0.8rem; margin-right: 2px; }
+.btn-submit {
+  width: 100%; padding: 14px;
+  background: linear-gradient(135deg, var(--accent-wine), #e8a0b4);
+  color: #fff; font-size: 1rem; font-weight: 600;
+  border-radius: var(--radius-md);
+  transition: all var(--duration-fast) var(--ease-out);
+  letter-spacing: 1px;
+}
+.btn-submit:hover { filter: brightness(1.15); transform: translateY(-1px); box-shadow: 0 4px 20px rgba(192,57,43,0.4); }
+.btn-submit:active { transform: scale(0.97); }
+.btn-submit:disabled { opacity: 0.4; pointer-events: none; }
+
+/* ============================================================
+   Empty State
+   ============================================================ */
+.empty-state {
+  text-align: center; padding: var(--space-2xl) var(--space-lg);
+}
+.empty-icon { font-size: 3rem; margin-bottom: var(--space-md); display: block; }
+.empty-text { font-size: 0.95rem; color: var(--text-muted); }
+
+/* ============================================================
+   Modal
+   ============================================================ */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: var(--bg-overlay);
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--space-lg);
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--duration-normal) var(--ease-out);
+}
+.modal-overlay.open { opacity: 1; pointer-events: auto; }
+.modal {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  width: 100%; max-width: 400px;
+  max-height: 85vh; overflow-y: auto;
+  transform: scale(0.95);
+  transition: transform var(--duration-normal) var(--ease-out);
+  box-shadow: var(--shadow-elevated);
+}
+.modal-overlay.open .modal { transform: scale(1); }
+.modal-title {
+  font-family: var(--font-display); font-size: 1.2rem; font-weight: 600;
+  margin-bottom: var(--space-lg);
+}
+.form-group { margin-bottom: var(--space-md); }
+.form-label {
+  display: block; font-size: 0.8rem; font-weight: 500;
+  color: var(--text-secondary); margin-bottom: 6px;
+}
+.form-input, .form-select, .form-textarea {
+  width: 100%; padding: 10px 14px;
+  background: var(--bg-input); color: var(--text-primary);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+  font-size: 0.9rem; transition: border-color var(--duration-fast) var(--ease-out);
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--border-active);
+}
+.form-textarea { resize: vertical; min-height: 60px; }
+.form-select { appearance: none; cursor: pointer; }
+.modal-actions { display: flex; gap: var(--space-sm); margin-top: var(--space-lg); }
+.btn-primary {
+  flex: 1; padding: 12px;
+  background: var(--accent-wine); color: #fff;
+  border-radius: var(--radius-sm); font-size: 0.9rem; font-weight: 600;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.btn-primary:hover { background: var(--accent-wine-hover); }
+.btn-secondary {
+  flex: 1; padding: 12px;
+  background: var(--bg-secondary); color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm); font-size: 0.9rem; font-weight: 500;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.btn-secondary:hover { border-color: var(--text-muted); color: var(--text-primary); }
+
+/* ============================================================
+   Toast
+   ============================================================ */
+.toast-container {
+  position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+  z-index: 400; display: flex; flex-direction: column; gap: var(--space-sm);
+  width: min(90vw, 400px); pointer-events: none;
+}
+.toast {
+  padding: 12px 20px; border-radius: var(--radius-md);
+  font-size: 0.85rem; font-weight: 500; text-align: center;
+  animation: toast-in var(--duration-normal) var(--ease-out) forwards;
+  pointer-events: auto;
+  box-shadow: var(--shadow-elevated);
+}
+.toast.success { background: var(--success); color: #fff; }
+.toast.error { background: var(--danger); color: #fff; }
+.toast.info { background: var(--info); color: #fff; }
+.toast.out { animation: toast-out var(--duration-fast) var(--ease-out) forwards; }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes toast-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-20px); }
+}
+
+/* ============================================================
+   Confirmation Dialog
+   ============================================================ */
+.confirm-overlay {
+  position: fixed; inset: 0; z-index: 350;
+  background: var(--bg-overlay);
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--space-lg);
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+.confirm-overlay.open { opacity: 1; pointer-events: auto; }
+.confirm-box {
+  background: var(--bg-tertiary); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg); padding: var(--space-lg);
+  width: 100%; max-width: 320px; text-align: center;
+  box-shadow: var(--shadow-elevated);
+}
+.confirm-msg { margin-bottom: var(--space-lg); font-size: 0.95rem; line-height: 1.6; }
+.confirm-actions { display: flex; gap: var(--space-sm); }
+
+/* ============================================================
+   PIN Modal
+   ============================================================ */
+.pin-overlay {
+  position: fixed; inset: 0; z-index: 320;
+  background: var(--bg-overlay);
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--space-lg);
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--duration-normal) var(--ease-out);
+}
+.pin-overlay.open { opacity: 1; pointer-events: auto; }
+.pin-box {
+  background: var(--bg-tertiary); border: 2px solid var(--accent-wine);
+  border-radius: var(--radius-lg); padding: var(--space-xl);
+  width: 100%; max-width: 340px; text-align: center;
+  box-shadow: var(--shadow-elevated);
+  transform: scale(0.95);
+  transition: transform var(--duration-normal) var(--ease-out);
+}
+.pin-overlay.open .pin-box { transform: scale(1); }
+.pin-icon { font-size: 3rem; margin-bottom: var(--space-sm); }
+.pin-title { font-family: var(--font-display); font-size: 1.2rem; font-weight: 700; margin-bottom: 4px; color: var(--accent-wine); }
+.pin-subtitle { font-size: 0.85rem; color: var(--text-muted); margin-bottom: var(--space-lg); }
+.pin-input {
+  width: 100%; padding: 14px 16px;
+  background: var(--bg-input); color: var(--text-primary);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+  font-size: 1.2rem; text-align: center; letter-spacing: 8px;
+  margin-bottom: var(--space-lg);
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+.pin-input:focus { border-color: var(--accent-wine); outline: none; }
+.pin-input::placeholder { letter-spacing: 1px; font-size: 0.9rem; color: var(--text-muted); }
+.pin-actions { display: flex; gap: var(--space-sm); }
+.pin-lock-btn {
+  display: block; width: 100%; margin-top: var(--space-md); padding: 10px;
+  background: none; color: var(--text-muted); font-size: 0.85rem;
+  border-radius: var(--radius-sm); cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.pin-lock-btn:hover { color: var(--danger); background: var(--danger-light); }
+
+/* ============================================================
+   History Date Group
+   ============================================================ */
+.history-group { margin-bottom: var(--space-lg); }
+.history-date {
+  font-size: 0.8rem; color: var(--text-muted);
+  font-weight: 600; margin-bottom: var(--space-sm);
+  padding-left: 4px;
+}
+
+/* ============================================================
+   Utility
+   ============================================================ */
+.hidden { display: none !important; }
+.section-title {
+  font-family: var(--font-display); font-size: 1.2rem; font-weight: 600;
+  margin-bottom: var(--space-md);
+}
+.text-gold { color: var(--accent-gold); }
+.text-muted { color: var(--text-muted); }
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (min-width: 768px) {
+  .menu-grid { grid-template-columns: 1fr 1fr; gap: var(--space-lg); }
+  .card-body { padding: var(--space-md); }
+}
+@media (min-width: 1024px) {
+  #app { border-radius: var(--radius-lg); margin: var(--space-lg) 0; min-height: calc(100vh - 48px); }
+  .menu-grid { gap: var(--space-md); }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Header -->
+  <header class="header">
+    <div class="header-brand">
+      <div class="header-logo">🍜</div>
+      <span class="header-title">今日投喂</span>
+    </div>
+    <div class="header-actions">
+      <button class="header-btn" id="btnCart" data-action="toggle-cart" title="购物车">
+        <i class="fa-solid fa-basket-shopping"></i>
+        <span class="badge-dot" id="cartBadge"></span>
+      </button>
+      <button class="header-btn active" id="btnOrdering" data-action="switch-view" data-view="ordering" title="点菜">
+        <i class="fa-solid fa-utensils"></i>
+      </button>
+      <button class="header-btn" id="btnMgmt" data-action="request-management" title="饲养员入口">
+        <i class="fa-solid fa-lock"></i>
+      </button>
+      <span class="ws-dot" id="wsDot" title="WebSocket 连接状态"></span>
+    </div>
+  </header>
+
+  <!-- Ordering View -->
+  <div id="viewOrdering" class="main-content">
+    <div class="cat-tabs" id="catTabs"></div>
+    <div class="random-picker" id="randomPicker">
+      <button class="random-btn" data-action="random-pick">
+        <span class="random-dice">🎲</span>
+        <span>今天吃什么</span>
+        <span class="random-sparkle">✨</span>
+      </button>
+    </div>
+    <div class="random-result-card" id="randomResult"></div>
+    <div class="menu-grid" id="menuGrid"></div>
+    <div class="empty-state hidden" id="menuEmpty">
+      <span class="empty-icon">🍽️</span>
+      <p class="empty-text">该分类暂无菜品</p>
+    </div>
+  </div>
+
+  <!-- Management View -->
+  <div id="viewManagement" class="main-content hidden">
+    <div class="mgmt-tabs" id="mgmtTabs">
+      <button class="mgmt-tab active" data-action="switch-mgmt-tab" data-tab="orders">📋 订单管理</button>
+      <button class="mgmt-tab" data-action="switch-mgmt-tab" data-tab="menu">📝 菜品管理</button>
+      <button class="mgmt-tab" data-action="switch-mgmt-tab" data-tab="history">🕐 订单历史</button>
+    </div>
+
+    <!-- Orders Panel -->
+    <div id="panelOrders">
+      <div class="filter-pills" id="orderFilters"></div>
+      <div class="order-list" id="orderList"></div>
+      <div class="empty-state hidden" id="orderEmpty">
+        <span class="empty-icon">📭</span>
+        <p class="empty-text">暂无订单</p>
+      </div>
+    </div>
+
+    <!-- Menu Management Panel -->
+    <div id="panelMenuMgmt" class="hidden">
+      <div class="menu-mgmt-list" id="menuMgmtList"></div>
+      <div class="empty-state hidden" id="menuMgmtEmpty">
+        <span class="empty-icon">📝</span>
+        <p class="empty-text">菜品库为空，点击下方按钮添加</p>
+      </div>
+      <button class="fab" data-action="open-modal" data-mode="add" title="添加菜品">
+        <i class="fa-solid fa-plus"></i>
+      </button>
+    </div>
+
+    <!-- History Panel -->
+    <div id="panelHistory" class="hidden">
+      <div id="historyList"></div>
+      <div class="empty-state hidden" id="historyEmpty">
+        <span class="empty-icon">🕐</span>
+        <p class="empty-text">暂无历史订单</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cart Overlay & Panel -->
+  <div class="cart-overlay" id="cartOverlay"></div>
+  <div class="cart-panel" id="cartPanel">
+    <div class="cart-header">
+      <span class="cart-title">🛒 购物车</span>
+      <button class="cart-close" data-action="close-cart">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div class="cart-items" id="cartItems">
+      <div class="empty-state">
+        <span class="empty-icon">🛒</span>
+        <p class="empty-text">购物车是空的</p>
+        <p class="empty-text" style="font-size:0.8rem">快去挑选美食吧~</p>
+      </div>
+    </div>
+    <div class="cart-footer" id="cartFooter" style="display:none">
+      <textarea class="cart-note" id="cartNoteInput" placeholder="订单备注（选填），如：少辣、不要葱…" rows="2"></textarea>
+      <div class="cart-summary">
+        <span class="cart-summary-label">合计</span>
+        <span class="cart-summary-total" id="cartTotal">0</span>
+      </div>
+      <button class="btn-submit" data-action="submit-order">✨ 确认下单</button>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modalBox">
+      <div class="modal-title" id="modalTitle">添加菜品</div>
+      <div class="form-group">
+        <label class="form-label">菜品名称 *</label>
+        <input class="form-input" id="formName" placeholder="如：红烧牛肉面" maxlength="30">
+      </div>
+      <div class="form-group">
+        <label class="form-label">分类 *</label>
+        <select class="form-select" id="formCategory">
+          <option value="荤菜">荤菜</option>
+          <option value="素菜">素菜</option>
+          <option value="主食">主食</option>
+          <option value="甜品">甜品</option>
+          <option value="饮品">饮品</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">价格 (¥) *</label>
+        <input class="form-input" id="formPrice" type="number" placeholder="38" min="1" max="9999" step="0.01">
+      </div>
+      <div class="form-group">
+        <label class="form-label">图片链接</label>
+        <input class="form-input" id="formImage" placeholder="https://... 留空则使用默认图标">
+      </div>
+      <div class="form-group">
+        <label class="form-label">描述</label>
+        <textarea class="form-textarea" id="formDesc" placeholder="简要描述这道菜品…" maxlength="100"></textarea>
+      </div>
+      <input type="hidden" id="formEditId">
+      <div class="modal-actions">
+        <button class="btn-secondary" data-action="close-modal">取消</button>
+        <button class="btn-primary" data-action="save-menu-item">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Dialog -->
+  <div class="confirm-overlay" id="confirmOverlay">
+    <div class="confirm-box">
+      <p class="confirm-msg" id="confirmMsg">确定要执行此操作吗？</p>
+      <div class="confirm-actions">
+        <button class="btn-secondary" data-action="confirm-cancel">取消</button>
+        <button class="btn-primary" id="confirmOk" data-action="confirm-ok">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PIN Modal -->
+  <div class="pin-overlay" id="pinOverlay">
+    <div class="pin-box">
+      <div class="pin-icon">👨‍🍳</div>
+      <div class="pin-title" id="pinTitle">饲养员验证</div>
+      <div class="pin-subtitle" id="pinSubtitle">请输入密码进入管理</div>
+      <input class="pin-input" id="pinInput" type="password" inputmode="numeric" maxlength="6" placeholder="输入密码" autocomplete="off">
+      <div class="pin-actions">
+        <button class="btn-secondary" data-action="pin-cancel">取消</button>
+        <button class="btn-primary" data-action="pin-submit">确认</button>
+      </div>
+      <button class="pin-lock-btn hidden" id="pinLockBtn" data-action="lock-management">
+        <i class="fa-solid fa-lock"></i> 锁定退出
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ============================================================
+  // CONSTANTS
+  // ============================================================
+  const CATEGORIES = ['全部', '荤菜', '素菜', '主食', '甜品', '饮品'];
+  const CATEGORIES_FILTER = ['荤菜', '素菜', '主食', '甜品', '饮品'];
+  const ORDER_STATUS = [
+    { key: 'new', label: '待投喂', cls: 'count-new' },
+    { key: 'accepted', label: '制作中', cls: 'count-progress' },
+    { key: 'completed', label: '已投喂', cls: 'count-done' },
+    { key: 'cancelled', label: '已取消', cls: '' }
+  ];
+  const STATUS_LABEL = { new: '待投喂', accepted: '制作中', completed: '已投喂', cancelled: '已取消' };
+  const STATUS_CLS = { new: 'status-new', accepted: 'status-accepted', completed: 'status-completed', cancelled: 'status-cancelled' };
+
+  const FOOD_EMOJI = {
+    '荤菜': ['🍖','🥩','🍗','🦐','🐟','🐔','🥓','🍤','🦀','🦑'],
+    '素菜': ['🥬','🥦','🍅','🥒','🌶️','🧄','🧅','🥗','🫑','🍆'],
+    '主食': ['🍜','🍚','🍛','🥘','🍝','🫕','🥟','🦞','🥮','🍲'],
+    '甜品': ['🍰','🧁','🍮','🍩','🍪','🍨','🍧','🥞','🍫','🍯'],
+    '饮品': ['🍵','☕','🧋','🍹','🍸','🥤','🧃','🫖','🍶','🥛']
+  };
+
+  const SEED_DATA = [
+    // 荤菜
+    { name: '宫保鸡丁', category: '荤菜', price: 36, description: '经典川味，鸡丁嫩滑花生酥脆，麻辣鲜香', image: '' },
+    { name: '回锅肉', category: '荤菜', price: 38, description: '五花肉片配蒜苗豆瓣酱，肥而不腻', image: '' },
+    { name: '水煮鱼', category: '荤菜', price: 68, description: '鲜嫩鱼片配麻辣红油，豆芽垫底超入味', image: '' },
+    { name: '糖醋里脊', category: '荤菜', price: 42, description: '外酥里嫩，酸甜酱汁裹满每一块里脊肉', image: '' },
+    { name: '红烧排骨', category: '荤菜', price: 48, description: '慢炖入味，排骨软烂脱骨，酱香浓郁', image: '' },
+    { name: '黑椒牛柳', category: '荤菜', price: 52, description: '嫩滑牛柳配黑椒洋葱，铁板风味', image: '' },
+    // 素菜
+    { name: '麻婆豆腐', category: '素菜', price: 22, description: '嫩豆腐配麻辣酱料，川味下饭经典', image: '' },
+    { name: '蒜蓉西兰花', category: '素菜', price: 20, description: '新鲜西兰花配蒜蓉清炒，营养爽脆', image: '' },
+    { name: '番茄炒蛋', category: '素菜', price: 22, description: '酸甜番茄配嫩滑鸡蛋，家常好味道', image: '' },
+    { name: '干煸四季豆', category: '素菜', price: 24, description: '四季豆煸至微焦，干辣椒花椒增香', image: '' },
+    { name: '地三鲜', category: '素菜', price: 26, description: '土豆茄子青椒三兄弟，东北经典素菜', image: '' },
+    // 主食
+    { name: '红烧牛肉面', category: '主食', price: 38, description: '慢炖牛骨汤底，大块牛肉配手工拉面', image: '' },
+    { name: '虾仁滑蛋饭', category: '主食', price: 35, description: '鲜嫩虾仁配丝滑蛋液，盖在热米饭上', image: '' },
+    { name: '麻辣香锅', category: '主食', price: 58, description: '自选荤素搭配，秘制麻辣酱料爆炒配米饭', image: '' },
+    { name: '番茄牛腩煲', category: '主食', price: 48, description: '酸甜浓郁番茄汤底，牛腩软烂配米饭', image: '' },
+    { name: '蛋炒饭', category: '主食', price: 18, description: '粒粒分明的黄金蛋炒饭，简单即美味', image: '' },
+    // 甜品
+    { name: '芒果椰汁西米露', category: '甜品', price: 25, description: '新鲜芒果配浓郁椰浆，西米Q弹爽滑', image: '' },
+    { name: '红豆双皮奶', category: '甜品', price: 22, description: '顺德经典甜品，奶香浓郁红豆绵密', image: '' },
+    { name: '杨枝甘露', category: '甜品', price: 28, description: '芒果柚子西米完美结合，港式经典', image: '' },
+    { name: '抹茶千层', category: '甜品', price: 32, description: '日式抹茶奶油层层叠加，入口即化', image: '' },
+    { name: '杏仁豆腐', category: '甜品', price: 18, description: '清甜杏仁风味，嫩滑如豆腐，桂花点缀', image: '' },
+    { name: '榴莲班戟', category: '甜品', price: 30, description: '薄皮包裹榴莲奶油馅，榴莲控必点', image: '' },
+    { name: '椰奶小方', category: '甜品', price: 15, description: '椰香四溢的小方块，裹上椰蓉更香浓', image: '' },
+    // 饮品
+    { name: '桂花乌龙茶', category: '饮品', price: 18, description: '台湾高山乌龙配桂花，清香回甘', image: '' },
+    { name: '荔枝茉莉花茶', category: '饮品', price: 20, description: '荔枝果香与茉莉花香的双重奏', image: '' },
+    { name: '冰镇柠檬薄荷水', category: '饮品', price: 15, description: '现切柠檬配鲜薄荷叶，清凉解腻', image: '' },
+    { name: '洛神花山楂饮', category: '饮品', price: 16, description: '洛神花与山楂慢煮，酸甜开胃', image: '' },
+    { name: '手冲精品咖啡', category: '饮品', price: 28, description: '单一产地咖啡豆，手工慢冲', image: '' },
+    { name: '蜜桃乌龙', category: '饮品', price: 22, description: '蜜桃果肉配乌龙茶底，果香茶韵', image: '' },
+    { name: '红糖姜茶', category: '饮品', price: 12, description: '老姜慢熬配古法红糖，暖身暖心', image: '' }
+  ];
+
+  // ============================================================
+  // STORAGE
+  // ============================================================
+  const Storage = {
+    getMenu() {
+      try {
+        const raw = localStorage.getItem('menuItems');
+        return raw ? JSON.parse(raw) : null;
+      } catch(e) { return null; }
+    },
+    saveMenu(arr) {
+      localStorage.setItem('menuItems', JSON.stringify(arr));
+    },
+    getOrders() {
+      try {
+        const raw = localStorage.getItem('orders');
+        return raw ? JSON.parse(raw) : [];
+      } catch(e) { return []; }
+    },
+    saveOrders(arr) {
+      localStorage.setItem('orders', JSON.stringify(arr));
+    },
+    genId(prefix) {
+      return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+    },
+    seedIfEmpty() {
+      const currentVersion = 2;
+      const storedVersion = parseInt(localStorage.getItem('dataVersion') || '0', 10);
+      if (storedVersion < currentVersion) {
+        const items = SEED_DATA.map((d, i) => ({
+          id: this.genId('m'),
+          name: d.name,
+          category: d.category,
+          price: d.price,
+          image: d.image || '',
+          description: d.description || '',
+          isAvailable: true,
+          createdAt: Date.now() - (SEED_DATA.length - i) * 60000
+        }));
+        this.saveMenu(items);
+        localStorage.setItem('dataVersion', String(currentVersion));
+        return;
+      }
+      if (!this.getMenu()) {
+        const items = SEED_DATA.map((d, i) => ({
+          id: this.genId('m'),
+          name: d.name,
+          category: d.category,
+          price: d.price,
+          image: d.image || '',
+          description: d.description || '',
+          isAvailable: true,
+          createdAt: Date.now() - (SEED_DATA.length - i) * 60000
+        }));
+        this.saveMenu(items);
+        localStorage.setItem('dataVersion', String(currentVersion));
+      }
+    },
+    // For image loading errors, we don't need special handling
+    // Cards will fallback to emoji placeholders
+  };
+
+  // ============================================================
+  // STATE
+  // ============================================================
+  const State = {
+    currentView: 'ordering',    // 'ordering' | 'management'
+    mgmtTab: 'orders',          // 'orders' | 'menu' | 'history'
+    categoryFilter: '全部',
+    orderFilter: 'new',
+    cart: [],
+    cartNote: '',
+    editingId: null,
+    confirmCallback: null,
+
+    // Cart methods
+    addToCart(menuItem) {
+      const existing = this.cart.find(c => c.menuId === menuItem.id);
+      if (existing) {
+        existing.quantity++;
+      } else {
+        this.cart.push({
+          menuId: menuItem.id,
+          name: menuItem.name,
+          price: menuItem.price,
+          quantity: 1,
+          note: ''
+        });
+      }
+    },
+    removeFromCart(menuId) {
+      const idx = this.cart.findIndex(c => c.menuId === menuId);
+      if (idx >= 0) {
+        if (this.cart[idx].quantity > 1) {
+          this.cart[idx].quantity--;
+        } else {
+          this.cart.splice(idx, 1);
+        }
+      }
+    },
+    updateQty(menuId, qty) {
+      const item = this.cart.find(c => c.menuId === menuId);
+      if (item) {
+        item.quantity = Math.max(1, Math.min(99, qty));
+      }
+    },
+    updateItemNote(menuId, note) {
+      const item = this.cart.find(c => c.menuId === menuId);
+      if (item) item.note = note;
+    },
+    clearCart() {
+      this.cart = [];
+      this.cartNote = '';
+    },
+    cartTotal() {
+      return this.cart.reduce((sum, c) => sum + c.price * c.quantity, 0);
+    },
+    cartCount() {
+      return this.cart.reduce((sum, c) => sum + c.quantity, 0);
+    }
+  };
+
+  // ============================================================
+  // HELPERS
+  // ============================================================
+  function getEmoji(category, index) {
+    const pool = FOOD_EMOJI[category] || ['🍽️'];
+    return pool[index % pool.length];
+  }
+
+  function formatPrice(n) {
+    return Number(n).toFixed(2);
+  }
+
+  function formatTime(ts) {
+    const d = new Date(ts);
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+    if (d.toDateString() === now.toDateString()) return '今天 ' + time;
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) return '昨天 ' + time;
+
+    return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${time}`;
+  }
+
+  function formatDateLabel(ts) {
+    const d = new Date(ts);
+    const now = new Date();
+    if (d.toDateString() === now.toDateString()) return '今天';
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) return '昨天';
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  }
+
+  function groupByDate(orders) {
+    const groups = {};
+    orders.forEach(o => {
+      const label = formatDateLabel(o.createdAt);
+      if (!groups[label]) groups[label] = [];
+      groups[label].push(o);
+    });
+    return groups;
+  }
+
+  function toast(msg, type) {
+    type = type || 'info';
+    const container = document.getElementById('toastContainer');
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.textContent = msg;
+    container.appendChild(el);
+    setTimeout(() => {
+      el.classList.add('out');
+      el.addEventListener('animationend', () => el.remove());
+    }, 2200);
+  }
+
+  // ============================================================
+  // RENDER
+  // ============================================================
+  const Render = {
+    // --- Category Tabs ---
+    categoryTabs() {
+      const container = document.getElementById('catTabs');
+      container.innerHTML = CATEGORIES.map(cat => {
+        const active = State.categoryFilter === cat ? ' active' : '';
+        return `<button class="cat-tab${active}" data-action="filter-category" data-cat="${cat}">${cat}</button>`;
+      }).join('');
+    },
+
+    // --- Menu Grid ---
+    menuGrid() {
+      const menu = Storage.getMenu();
+      const available = menu.filter(m => m.isAvailable);
+      const filtered = State.categoryFilter === '全部'
+        ? available
+        : available.filter(m => m.category === State.categoryFilter);
+
+      const grid = document.getElementById('menuGrid');
+      const empty = document.getElementById('menuEmpty');
+
+      if (filtered.length === 0) {
+        grid.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+
+      grid.innerHTML = filtered.map((item, idx) => {
+        const name = Render._esc(item.name);
+        const desc = Render._esc(item.description || '');
+        const price = formatPrice(item.price);
+        const emoji = getEmoji(item.category, idx);
+
+        let imgHtml;
+        if (item.image && item.image.trim()) {
+          imgHtml = `<img class="card-img" src="${Render._esc(item.image)}" alt="${name}" loading="lazy"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
+                         onload="this.nextElementSibling.style.display='none';"><div class="card-img-placeholder" style="display:none">${emoji}</div>`;
+        } else {
+          imgHtml = `<div class="card-img-placeholder">${emoji}</div>`;
+        }
+
+        return `<div class="menu-card" data-action="add-to-cart-menu" data-id="${item.id}">
+          ${imgHtml}
+          <div class="card-body">
+            <div class="card-name">${name}</div>
+            <div class="card-desc">${desc}</div>
+            <div class="card-footer">
+              <span class="card-price">${price}</span>
+              <button class="btn-add" data-action="add-to-cart-btn" data-id="${item.id}" title="加入购物车">
+                <i class="fa-solid fa-plus"></i>
+              </button>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    },
+
+    // --- Cart Panel ---
+    cartPanel() {
+      const itemsContainer = document.getElementById('cartItems');
+      const footer = document.getElementById('cartFooter');
+      const totalEl = document.getElementById('cartTotal');
+
+      if (State.cart.length === 0) {
+        itemsContainer.innerHTML = `<div class="empty-state">
+          <span class="empty-icon">🛒</span>
+          <p class="empty-text">购物车是空的</p>
+          <p class="empty-text" style="font-size:0.8rem">快去挑选美食吧~</p>
+        </div>`;
+        footer.style.display = 'none';
+      } else {
+        itemsContainer.innerHTML = State.cart.map(item => {
+          const name = Render._esc(item.name);
+          const subtotal = formatPrice(item.price * item.quantity);
+          const note = Render._esc(item.note || '');
+          return `<div class="cart-item">
+            <div class="cart-item-info">
+              <div class="cart-item-name">${name}</div>
+              <div class="cart-item-price">¥${formatPrice(item.price)}</div>
+              <input class="cart-item-note-input" type="text" placeholder="备注（如：少辣）"
+                     data-action="update-item-note" data-id="${item.menuId}" value="${note}">
+            </div>
+            <div class="qty-control">
+              <button class="qty-btn" data-action="dec-cart-qty" data-id="${item.menuId}">
+                <i class="fa-solid fa-minus"></i>
+              </button>
+              <span class="qty-num">${item.quantity}</span>
+              <button class="qty-btn" data-action="inc-cart-qty" data-id="${item.menuId}">
+                <i class="fa-solid fa-plus"></i>
+              </button>
+            </div>
+            <span class="cart-item-subtotal">¥${subtotal}</span>
+          </div>`;
+        }).join('');
+        footer.style.display = 'block';
+      }
+
+      document.getElementById('cartNoteInput').value = State.cartNote;
+      totalEl.textContent = formatPrice(State.cartTotal());
+      this.cartBadge();
+    },
+
+    cartBadge() {
+      const badge = document.getElementById('cartBadge');
+      const count = State.cartCount();
+      badge.textContent = count > 0 ? count : '';
+    },
+
+    // --- Random Picker ---
+    randomPick() {
+      const menu = Storage.getMenu();
+      const available = menu.filter(m => m.isAvailable);
+      if (available.length === 0) {
+        toast('菜品库为空，请先添加菜品', 'error');
+        return null;
+      }
+      // Shuffle animation
+      const btn = document.querySelector('#randomPicker .random-btn');
+      btn.classList.add('random-shuffling');
+      setTimeout(() => btn.classList.remove('random-shuffling'), 600);
+
+      const idx = Math.floor(Math.random() * available.length);
+      return available[idx];
+    },
+
+    showRandomResult(item) {
+      if (!item) return;
+      const container = document.getElementById('randomResult');
+      const emoji = getEmoji(item.category, 0);
+      const name = Render._esc(item.name);
+      const cat = Render._esc(item.category);
+      const price = formatPrice(item.price);
+      const desc = Render._esc(item.description || '');
+
+      container.innerHTML = `
+        <div class="random-result-emoji">${emoji}</div>
+        <div class="random-result-name">${name}</div>
+        <div class="random-result-meta">${cat} · ${desc}</div>
+        <div class="random-result-price">${price}</div>
+        <div class="random-result-actions">
+          <button class="btn-random-action btn-random-reroll" data-action="random-pick">
+            <i class="fa-solid fa-shuffle"></i> 换一个
+          </button>
+          <button class="btn-random-action btn-random-pickit" data-action="random-pick-confirm" data-id="${item.id}">
+            <i class="fa-solid fa-check"></i> 就它了
+          </button>
+        </div>`;
+      container.classList.add('show');
+
+      // Scroll to result card
+      container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    },
+
+    clearRandomResult() {
+      const container = document.getElementById('randomResult');
+      container.classList.remove('show');
+      container.innerHTML = '';
+    },
+
+    // --- Management Tabs ---
+    mgmtTabs() {
+      const tabs = document.querySelectorAll('#mgmtTabs .mgmt-tab');
+      tabs.forEach(t => {
+        t.classList.toggle('active', t.dataset.tab === State.mgmtTab);
+      });
+    },
+
+    // --- Order Filters ---
+    orderFilters() {
+      const container = document.getElementById('orderFilters');
+      const orders = Storage.getOrders();
+      const counts = {};
+      ORDER_STATUS.forEach(s => {
+        counts[s.key] = orders.filter(o => o.status === s.key).length;
+      });
+
+      container.innerHTML = ORDER_STATUS.map(s => {
+        const count = counts[s.key];
+        const active = State.orderFilter === s.key ? ' active' : '';
+        const countStr = count > 0 ? ` (${count})` : '';
+        return `<button class="filter-pill${s.cls ? ' ' + s.cls : ''}${active}"
+                       data-action="filter-order-status" data-status="${s.key}">${s.label}${countStr}</button>`;
+      }).join('');
+    },
+
+    // --- Order List ---
+    orderList() {
+      const container = document.getElementById('orderList');
+      const empty = document.getElementById('orderEmpty');
+      const orders = Storage.getOrders();
+      const filtered = State.orderFilter === 'all'
+        ? orders
+        : orders.filter(o => o.status === State.orderFilter);
+
+      // Sort: newest first
+      filtered.sort((a, b) => b.createdAt - a.createdAt);
+
+      if (filtered.length === 0) {
+        container.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+
+      container.innerHTML = filtered.map(order => {
+        const isNew = order.status === 'new';
+        const statusLabel = STATUS_LABEL[order.status] || order.status;
+        const statusCls = STATUS_CLS[order.status] || '';
+        const time = formatTime(order.createdAt);
+        const total = formatPrice(order.totalAmount);
+        const itemsHtml = order.items.map(it => {
+          const note = it.note ? ` <span class="order-item-note">(${Render._esc(it.note)})</span>` : '';
+          return `<div class="order-item-row">
+            <span class="order-item-name">${Render._esc(it.name)}${note}</span>
+            <span class="order-item-qty">×${it.quantity}</span>
+            <span class="order-item-price">¥${formatPrice(it.price * it.quantity)}</span>
+          </div>`;
+        }).join('');
+
+        let actionsHtml = '';
+        if (order.status === 'new') {
+          actionsHtml = `
+            <button class="btn-sm btn-accept" data-action="accept-order" data-id="${order.id}">📥 接单</button>
+            <button class="btn-sm btn-cancel" data-action="cancel-order" data-id="${order.id}">取消</button>`;
+        } else if (order.status === 'accepted') {
+          actionsHtml = `
+            <button class="btn-sm btn-complete" data-action="complete-order" data-id="${order.id}">✅ 完成</button>
+            <button class="btn-sm btn-cancel" data-action="cancel-order" data-id="${order.id}">取消</button>`;
+        }
+
+        return `<div class="order-card${isNew ? ' new-order' : ''}">
+          <div class="order-header">
+            <span class="order-id">#${order.id.slice(-8)}</span>
+            <span class="order-status ${statusCls}">${statusLabel}</span>
+            <span class="order-time">${time}</span>
+          </div>
+          <div class="order-items">${itemsHtml}</div>
+          ${order.note ? `<div class="order-note">💬 ${Render._esc(order.note)}</div>` : ''}
+          <div class="order-total">合计 ¥${total}</div>
+          ${actionsHtml ? `<div class="order-actions">${actionsHtml}</div>` : ''}
+        </div>`;
+      }).join('');
+    },
+
+    // --- Menu Management List ---
+    menuMgmtList() {
+      const container = document.getElementById('menuMgmtList');
+      const empty = document.getElementById('menuMgmtEmpty');
+      const menu = Storage.getMenu();
+
+      if (menu.length === 0) {
+        container.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+
+      container.innerHTML = menu.map((item, idx) => {
+        const name = Render._esc(item.name);
+        const price = formatPrice(item.price);
+        const cat = Render._esc(item.category);
+        const offline = !item.isAvailable;
+        const emoji = getEmoji(item.category, idx);
+
+        let imgHtml;
+        if (item.image && item.image.trim()) {
+          imgHtml = `<img class="menu-mgmt-img" src="${Render._esc(item.image)}" alt="${name}"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
+                         onload="this.nextElementSibling.style.display='none';"><div class="menu-mgmt-img-placeholder" style="display:none">${emoji}</div>`;
+        } else {
+          imgHtml = `<div class="menu-mgmt-img-placeholder">${emoji}</div>`;
+        }
+
+        return `<div class="menu-mgmt-item${offline ? ' offline' : ''}">
+          ${imgHtml}
+          <div class="menu-mgmt-info">
+            <div class="menu-mgmt-name">${name}${offline ? ' <span style="color:var(--danger);font-size:0.7rem">已下架</span>' : ''}</div>
+            <div class="menu-mgmt-meta">
+              <span>${cat}</span>
+              <span class="menu-mgmt-price">¥${price}</span>
+            </div>
+          </div>
+          <div class="menu-mgmt-actions">
+            <button class="btn-icon" data-action="toggle-available" data-id="${item.id}" title="${offline ? '上架' : '下架'}">
+              <i class="fa-solid fa-${offline ? 'eye-slash' : 'eye'}"></i>
+            </button>
+            <button class="btn-icon" data-action="edit-menu-item" data-id="${item.id}" title="编辑">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+            <button class="btn-icon danger" data-action="delete-menu-item" data-id="${item.id}" title="删除">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+        </div>`;
+      }).join('');
+    },
+
+    // --- Modal ---
+    openModal(mode, item) {
+      const overlay = document.getElementById('modalOverlay');
+      const title = document.getElementById('modalTitle');
+      document.getElementById('formEditId').value = '';
+
+      if (mode === 'add') {
+        title.textContent = '✨ 添加菜品';
+        document.getElementById('formName').value = '';
+        document.getElementById('formCategory').value = '荤菜';
+        document.getElementById('formPrice').value = '';
+        document.getElementById('formImage').value = '';
+        document.getElementById('formDesc').value = '';
+      } else if (mode === 'edit' && item) {
+        title.textContent = '✏️ 编辑菜品';
+        document.getElementById('formEditId').value = item.id;
+        document.getElementById('formName').value = item.name;
+        document.getElementById('formCategory').value = item.category;
+        document.getElementById('formPrice').value = item.price;
+        document.getElementById('formImage').value = item.image || '';
+        document.getElementById('formDesc').value = item.description || '';
+      }
+      State.editingId = mode === 'edit' ? item.id : null;
+      overlay.classList.add('open');
+    },
+
+    closeModal() {
+      document.getElementById('modalOverlay').classList.remove('open');
+      State.editingId = null;
+    },
+
+    // --- Confirm Dialog ---
+    showConfirm(msg, callback) {
+      document.getElementById('confirmMsg').textContent = msg;
+      document.getElementById('confirmOverlay').classList.add('open');
+      State.confirmCallback = callback;
+    },
+
+    closeConfirm() {
+      document.getElementById('confirmOverlay').classList.remove('open');
+      State.confirmCallback = null;
+    },
+
+    // --- History ---
+    historyList() {
+      const container = document.getElementById('historyList');
+      const empty = document.getElementById('historyEmpty');
+      const orders = Storage.getOrders();
+      const completed = orders.filter(o => o.status === 'completed' || o.status === 'cancelled');
+
+      if (completed.length === 0) {
+        container.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+
+      completed.sort((a, b) => b.createdAt - a.createdAt);
+      const groups = groupByDate(completed);
+
+      container.innerHTML = Object.entries(groups).map(([dateLabel, groupOrders]) => {
+        const cardsHtml = groupOrders.map(order => {
+          const statusLabel = STATUS_LABEL[order.status] || order.status;
+          const statusCls = STATUS_CLS[order.status] || '';
+          const time = formatTime(order.createdAt);
+          const total = formatPrice(order.totalAmount);
+          const itemsHtml = order.items.map(it => {
+            return `<div class="order-item-row">
+              <span class="order-item-name">${Render._esc(it.name)}</span>
+              <span class="order-item-qty">×${it.quantity}</span>
+              <span class="order-item-price">¥${formatPrice(it.price * it.quantity)}</span>
+            </div>`;
+          }).join('');
+
+          return `<div class="order-card">
+            <div class="order-header">
+              <span class="order-id">#${order.id.slice(-8)}</span>
+              <span class="order-status ${statusCls}">${statusLabel}</span>
+              <span class="order-time">${time}</span>
+            </div>
+            <div class="order-items">${itemsHtml}</div>
+            ${order.note ? `<div class="order-note">💬 ${Render._esc(order.note)}</div>` : ''}
+            <div class="order-total">合计 ¥${total}</div>
+            <div class="order-actions">
+              <button class="btn-sm btn-reorder" data-action="reorder" data-id="${order.id}">🔄 复购</button>
+            </div>
+          </div>`;
+        }).join('');
+
+        return `<div class="history-group">
+          <div class="history-date">${dateLabel}</div>
+          ${cardsHtml}
+        </div>`;
+      }).join('');
+    },
+
+    // --- Cart Panel Visibility ---
+    cartVisibility(open) {
+      const panel = document.getElementById('cartPanel');
+      const overlay = document.getElementById('cartOverlay');
+      if (open) {
+        panel.classList.add('open');
+        overlay.classList.add('open');
+      } else {
+        panel.classList.remove('open');
+        overlay.classList.remove('open');
+      }
+    },
+
+    // --- View Switching ---
+    switchView(view) {
+      State.currentView = view;
+      document.getElementById('viewOrdering').classList.toggle('hidden', view !== 'ordering');
+      document.getElementById('viewManagement').classList.toggle('hidden', view !== 'management');
+      document.getElementById('btnOrdering').classList.toggle('active', view === 'ordering');
+      document.getElementById('btnMgmt').classList.toggle('active', view === 'management');
+
+      // Update lock icon
+      const mgmtIcon = document.getElementById('btnMgmt').querySelector('i');
+      if (view === 'management') {
+        mgmtIcon.className = 'fa-solid fa-lock-open';
+      } else {
+        mgmtIcon.className = 'fa-solid fa-lock';
+      }
+
+      if (view === 'ordering') {
+        Render.categoryTabs();
+        Render.menuGrid();
+      } else {
+        Render.mgmtTabs();
+        Render.switchMgmtPanel();
+      }
+    },
+
+    switchMgmtPanel() {
+      const panelOrders = document.getElementById('panelOrders');
+      const panelMenuMgmt = document.getElementById('panelMenuMgmt');
+      const panelHistory = document.getElementById('panelHistory');
+      panelOrders.classList.toggle('hidden', State.mgmtTab !== 'orders');
+      panelMenuMgmt.classList.toggle('hidden', State.mgmtTab !== 'menu');
+      panelHistory.classList.toggle('hidden', State.mgmtTab !== 'history');
+
+      if (State.mgmtTab === 'orders') {
+        Render.orderFilters();
+        Render.orderList();
+      } else if (State.mgmtTab === 'menu') {
+        Render.menuMgmtList();
+      } else if (State.mgmtTab === 'history') {
+        Render.historyList();
+      }
+      Render.mgmtTabs();
+    },
+
+    // --- Escape helper ---
+    _esc(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+  };
+
+  // ============================================================
+  // EVENTS
+  // ============================================================
+  const app = document.getElementById('app');
+
+  app.addEventListener('click', function(e) {
+    const target = e.target.closest('[data-action]');
+    if (!target) return;
+    const action = target.dataset.action;
+
+    switch(action) {
+      // --- Cart Actions ---
+      case 'toggle-cart':
+        e.preventDefault();
+        Render.cartPanel();
+        Render.cartVisibility(true);
+        break;
+
+      case 'close-cart':
+        Render.cartVisibility(false);
+        break;
+
+      case 'add-to-cart-menu':
+      case 'add-to-cart-btn': {
+        const menuId = target.dataset.id;
+        const menu = Storage.getMenu();
+        const item = menu.find(m => m.id === menuId);
+        if (item && item.isAvailable) {
+          State.addToCart(item);
+          Render.cartPanel();
+          Render.menuGrid();
+          toast(`${item.name} 已加入购物车`, 'success');
+        }
+        break;
+      }
+
+      case 'inc-cart-qty': {
+        const menuId = target.dataset.id;
+        State.addToCart({
+          id: menuId,
+          name: '',
+          price: State.cart.find(c => c.menuId === menuId)?.price || 0
+        });
+        Render.cartPanel();
+        break;
+      }
+
+      case 'dec-cart-qty': {
+        const menuId = target.dataset.id;
+        State.removeFromCart(menuId);
+        Render.cartPanel();
+        break;
+      }
+
+      case 'submit-order': {
+        if (State.cart.length === 0) {
+          toast('购物车是空的，请先添加菜品', 'error');
+          return;
+        }
+        const order = {
+          id: Storage.genId('o'),
+          items: State.cart.map(c => ({
+            menuId: c.menuId,
+            name: c.name,
+            price: c.price,
+            quantity: c.quantity,
+            note: c.note
+          })),
+          totalAmount: State.cartTotal(),
+          note: State.cartNote,
+          status: 'new',
+          createdAt: Date.now(),
+          acceptedAt: null,
+          completedAt: null
+        };
+        const orders = Storage.getOrders();
+        orders.push(order);
+        Storage.saveOrders(orders);
+        State.clearCart();
+        Render.cartPanel();
+        Render.cartVisibility(false);
+        Render.menuGrid();
+        WSClient.notifyOrderNew(order);
+        toast('✨ 投喂申请已发送，等待饲养员处理...', 'success');
+        break;
+      }
+
+      // --- View Switching ---
+      case 'request-management':
+        e.preventDefault();
+        if (PinManager.isUnlocked()) {
+          // Already unlocked — toggle back to ordering (lock)
+          PinManager.lock();
+          PinManager.hidePinModal();
+          toast('🔒 已锁定，返回点菜模式', 'info');
+        } else {
+          PinManager.showPinModal(PinManager.isPinSet() ? 'auth' : 'setup');
+        }
+        break;
+
+      case 'pin-submit':
+        e.preventDefault();
+        PinManager.handleSubmit();
+        break;
+
+      case 'pin-cancel':
+        PinManager.hidePinModal();
+        break;
+
+      case 'lock-management':
+        PinManager.lock();
+        PinManager.hidePinModal();
+        document.getElementById('btnMgmt').querySelector('i').className = 'fa-solid fa-lock';
+        toast('🔒 已锁定，返回点菜模式', 'info');
+        break;
+
+      // --- Random Picker ---
+      case 'random-pick': {
+        e.preventDefault();
+        Render.clearRandomResult();
+        const item = Render.randomPick();
+        if (item) Render.showRandomResult(item);
+        break;
+      }
+
+      case 'random-pick-confirm': {
+        const menuId = target.dataset.id;
+        const menu = Storage.getMenu();
+        const item = menu.find(m => m.id === menuId);
+        if (item && item.isAvailable) {
+          State.addToCart(item);
+          Render.cartPanel();
+          Render.clearRandomResult();
+          Render.menuGrid();
+          toast(`「${item.name}」已加入购物车 🎉`, 'success');
+        }
+        break;
+      }
+
+      // --- Category Filter ---
+      case 'filter-category':
+        State.categoryFilter = target.dataset.cat;
+        Render.categoryTabs();
+        Render.menuGrid();
+        break;
+
+      // --- Management Tabs ---
+      case 'switch-mgmt-tab':
+        State.mgmtTab = target.dataset.tab;
+        Render.switchMgmtPanel();
+        break;
+
+      // --- Order Filter ---
+      case 'filter-order-status':
+        State.orderFilter = target.dataset.status;
+        Render.orderFilters();
+        Render.orderList();
+        break;
+
+      // --- Order Management ---
+      case 'accept-order': {
+        const orders = Storage.getOrders();
+        const order = orders.find(o => o.id === target.dataset.id);
+        if (order) {
+          order.status = 'accepted';
+          order.acceptedAt = Date.now();
+          Storage.saveOrders(orders);
+          Render.orderList();
+          Render.orderFilters();
+          WSClient.notifyOrderUpdate(order.id, 'accepted', { acceptedAt: order.acceptedAt });
+          toast('🍳 开始制作，马上就好~', 'info');
+        }
+        break;
+      }
+
+      case 'complete-order': {
+        const orders = Storage.getOrders();
+        const order = orders.find(o => o.id === target.dataset.id);
+        if (order) {
+          order.status = 'completed';
+          order.completedAt = Date.now();
+          Storage.saveOrders(orders);
+          Render.orderList();
+          Render.orderFilters();
+          WSClient.notifyOrderUpdate(order.id, 'completed', { completedAt: order.completedAt });
+          toast('✅ 投喂完成，请享用~', 'success');
+        }
+        break;
+      }
+
+      case 'cancel-order': {
+        const orderId = target.dataset.id;
+        Render.showConfirm('确定要取消这个订单吗？', () => {
+          const orders = Storage.getOrders();
+          const order = orders.find(o => o.id === orderId);
+          if (order) {
+            order.status = 'cancelled';
+            Storage.saveOrders(orders);
+            Render.orderList();
+            Render.orderFilters();
+            toast('订单已取消', 'info');
+          }
+        });
+        break;
+      }
+
+      // --- Reorder ---
+      case 'reorder': {
+        const orders = Storage.getOrders();
+        const order = orders.find(o => o.id === target.dataset.id);
+        if (order) {
+          const menu = Storage.getMenu();
+          order.items.forEach(it => {
+            const menuItem = menu.find(m => m.id === it.menuId);
+            if (menuItem && menuItem.isAvailable) {
+              const existing = State.cart.find(c => c.menuId === it.menuId);
+              if (existing) {
+                existing.quantity += it.quantity;
+              } else {
+                State.cart.push({
+                  menuId: it.menuId,
+                  name: menuItem.name,
+                  price: menuItem.price,
+                  quantity: it.quantity,
+                  note: it.note || ''
+                });
+              }
+            } else {
+              // Item no longer available, skip
+            }
+          });
+          const count = order.items.length;
+          Render.cartPanel();
+          Render.cartVisibility(true);
+          Render.switchView('ordering');
+          toast(`已加入购物车 ${count} 件商品`, 'success');
+        }
+        break;
+      }
+
+      // --- Menu Management CRUD ---
+      case 'open-modal': {
+        const mode = target.dataset.mode || 'add';
+        Render.openModal(mode);
+        break;
+      }
+
+      case 'close-modal':
+        Render.closeModal();
+        break;
+
+      case 'save-menu-item': {
+        const name = document.getElementById('formName').value.trim();
+        const category = document.getElementById('formCategory').value;
+        const priceStr = document.getElementById('formPrice').value.trim();
+        const image = document.getElementById('formImage').value.trim();
+        const desc = document.getElementById('formDesc').value.trim();
+
+        if (!name) { toast('请输入菜品名称', 'error'); return; }
+        if (!priceStr || isNaN(parseFloat(priceStr)) || parseFloat(priceStr) <= 0) {
+          toast('请输入有效价格', 'error'); return;
+        }
+        const price = Math.round(parseFloat(priceStr) * 100) / 100;
+
+        const menu = Storage.getMenu();
+        const editId = document.getElementById('formEditId').value;
+
+        if (editId) {
+          // Edit existing
+          const item = menu.find(m => m.id === editId);
+          if (item) {
+            item.name = name;
+            item.category = category;
+            item.price = price;
+            item.image = image;
+            item.description = desc;
+          }
+        } else {
+          // Add new
+          menu.push({
+            id: Storage.genId('m'),
+            name, category, price, image,
+            description: desc,
+            isAvailable: true,
+            createdAt: Date.now()
+          });
+        }
+
+        Storage.saveMenu(menu);
+        WSClient.notifyMenuUpdate();
+        Render.closeModal();
+        Render.menuMgmtList();
+        Render.menuGrid();
+        toast(editId ? '菜品已更新' : '菜品已添加', 'success');
+        break;
+      }
+
+      case 'edit-menu-item': {
+        const menu = Storage.getMenu();
+        const item = menu.find(m => m.id === target.dataset.id);
+        if (item) Render.openModal('edit', item);
+        break;
+      }
+
+      case 'delete-menu-item': {
+        const itemId = target.dataset.id;
+        const menu = Storage.getMenu();
+        const item = menu.find(m => m.id === itemId);
+        if (!item) return;
+        Render.showConfirm(`确定要删除「${item.name}」吗？删除后可在订单历史中查看过往记录。`, () => {
+          const menu = Storage.getMenu();
+          const filtered = menu.filter(m => m.id !== itemId);
+          Storage.saveMenu(filtered);
+          WSClient.notifyMenuUpdate();
+          Render.menuMgmtList();
+          Render.menuGrid();
+          toast(`「${item.name}」已删除`, 'info');
+        });
+        break;
+      }
+
+      case 'toggle-available': {
+        const menu = Storage.getMenu();
+        const item = menu.find(m => m.id === target.dataset.id);
+        if (item) {
+          item.isAvailable = !item.isAvailable;
+          Storage.saveMenu(menu);
+          WSClient.notifyMenuUpdate();
+          Render.menuMgmtList();
+          Render.menuGrid();
+          toast(item.isAvailable ? `「${item.name}」已上架` : `「${item.name}」已下架`, 'info');
+        }
+        break;
+      }
+
+      // --- Confirm Dialog ---
+      case 'confirm-cancel':
+        Render.closeConfirm();
+        break;
+
+      case 'confirm-ok':
+        if (State.confirmCallback) {
+          State.confirmCallback();
+        }
+        Render.closeConfirm();
+        break;
+    }
+  });
+
+  // --- Input Events (delegated) ---
+  app.addEventListener('input', function(e) {
+    const target = e.target.closest('[data-action]');
+    if (!target) return;
+    const action = target.dataset.action;
+
+    if (action === 'update-item-note') {
+      State.updateItemNote(target.dataset.id, target.value);
+    }
+  });
+
+  app.addEventListener('change', function(e) {
+    if (e.target.id === 'cartNoteInput') {
+      State.cartNote = e.target.value;
+    }
+  });
+
+  // --- Cart Overlay Click to Close ---
+  document.getElementById('cartOverlay').addEventListener('click', function() {
+    Render.cartVisibility(false);
+  });
+
+  // --- Modal Overlay Click to Close ---
+  document.getElementById('modalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) Render.closeModal();
+  });
+
+  // --- Keyboard ---
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      if (document.getElementById('pinOverlay').classList.contains('open')) {
+        PinManager.hidePinModal();
+      } else if (document.getElementById('cartPanel').classList.contains('open')) {
+        Render.cartVisibility(false);
+      } else if (document.getElementById('modalOverlay').classList.contains('open')) {
+        Render.closeModal();
+      } else if (document.getElementById('confirmOverlay').classList.contains('open')) {
+        Render.closeConfirm();
+      }
+    }
+    if (e.key === 'Enter' && document.getElementById('pinOverlay').classList.contains('open')) {
+      PinManager.handleSubmit();
+    }
+  });
+
+  // ============================================================
+  // ============================================================
+  // PIN MANAGEMENT
+  // ============================================================
+  const PinManager = {
+    _unlocked: false, // session only
+
+    getPin() {
+      return localStorage.getItem('mgmtPin') || null;
+    },
+
+    setPin(pin) {
+      localStorage.setItem('mgmtPin', pin);
+    },
+
+    isPinSet() {
+      return !!this.getPin();
+    },
+
+    verify(pin) {
+      return pin === this.getPin();
+    },
+
+    isUnlocked() {
+      return this._unlocked;
+    },
+
+    unlock() {
+      this._unlocked = true;
+    },
+
+    lock() {
+      this._unlocked = false;
+      State.currentView = 'ordering';
+      Render.switchView('ordering');
+    },
+
+    showPinModal(mode) {
+      // mode: 'auth' (verify existing) or 'setup' (create new)
+      const overlay = document.getElementById('pinOverlay');
+      const title = document.getElementById('pinTitle');
+      const subtitle = document.getElementById('pinSubtitle');
+      const input = document.getElementById('pinInput');
+      const lockBtn = document.getElementById('pinLockBtn');
+
+      input.value = '';
+      if (mode === 'setup' || !this.isPinSet()) {
+        title.textContent = '设置密码';
+        subtitle.textContent = '请设置一个6位以内数字密码';
+        lockBtn.classList.add('hidden');
+      } else {
+        title.textContent = '饲养员验证';
+        subtitle.textContent = '请输入密码进入管理';
+        lockBtn.classList.remove('hidden');
+      }
+      overlay.classList.add('open');
+      setTimeout(() => input.focus(), 300);
+    },
+
+    hidePinModal() {
+      document.getElementById('pinOverlay').classList.remove('open');
+    },
+
+    handleSubmit() {
+      const input = document.getElementById('pinInput');
+      const pin = input.value.trim();
+
+      if (!pin) {
+        toast('请输入密码', 'error');
+        return;
+      }
+
+      if (!this.isPinSet()) {
+        // Setup mode
+        this.setPin(pin);
+        this.unlock();
+        this.hidePinModal();
+        State.currentView = 'management';
+        Render.switchView('management');
+        toast('🔑 密码已设置，下次用这个密码进入管理', 'success');
+        return;
+      }
+
+      // Auth mode
+      if (this.verify(pin)) {
+        this.unlock();
+        this.hidePinModal();
+        State.currentView = 'management';
+        Render.switchView('management');
+        toast('👨‍🍳 欢迎回来，饲养员！', 'success');
+      } else {
+        toast('❌ 密码错误', 'error');
+        input.value = '';
+        input.focus();
+      }
+    }
+  };
+
+  // ============================================================
+  // ============================================================
+  // WEBSOCKET CLIENT (Real-time Notifications)
+  // ============================================================
+  const WS_URL = `ws://${window.location.hostname}:3456`;
+  let ws = null;
+  let wsReconnectTimer = null;
+
+  const WSClient = {
+    connect() {
+      if (ws && ws.readyState === WebSocket.OPEN) return;
+      try {
+        ws = new WebSocket(WS_URL);
+      } catch(e) {
+        console.log('[WS] 连接失败，稍后重试...');
+        this.scheduleReconnect();
+        return;
+      }
+
+      ws.onopen = () => {
+        console.log('[WS] ✅ 已连接到通知服务器');
+        this.setDot('connected');
+        if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+        // 根据当前视图声明角色
+        const role = PinManager.isUnlocked() ? 'boyfriend' : 'girlfriend';
+        this.send({ type: 'set-role', payload: { role } });
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          this.handle(msg);
+        } catch(e) {}
+      };
+
+      ws.onclose = () => {
+        console.log('[WS] 连接断开');
+        this.setDot('disconnected');
+        this.scheduleReconnect();
+      };
+
+      ws.onerror = () => {
+        this.setDot('disconnected');
+      };
+
+      ws.onerror = () => {
+        // 静默处理，onclose 会触发重连
+      };
+    },
+
+    scheduleReconnect() {
+      if (wsReconnectTimer) return;
+      wsReconnectTimer = setTimeout(() => {
+        wsReconnectTimer = null;
+        WSClient.connect();
+      }, 3000);
+    },
+
+    send(msg) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(msg));
+      }
+    },
+
+    handle(msg) {
+      switch (msg.type) {
+        case 'order-new': {
+          // 有新订单 → 同步到 localStorage
+          const orders = Storage.getOrders();
+          if (msg.payload && msg.payload.order) {
+            const exists = orders.find(o => o.id === msg.payload.order.id);
+            if (!exists) {
+              orders.push(msg.payload.order);
+              Storage.saveOrders(orders);
+              if (State.currentView === 'management' && State.mgmtTab === 'orders') {
+                Render.orderList();
+                Render.orderFilters();
+              }
+              toast('🍜 收到新的投喂请求！', 'info');
+            }
+          }
+          break;
+        }
+        case 'order-update': {
+          // 订单状态更新 → 同步
+          const orders = Storage.getOrders();
+          const order = orders.find(o => o.id === msg.payload?.orderId);
+          if (order && msg.payload?.status) {
+            order.status = msg.payload.status;
+            if (msg.payload.acceptedAt) order.acceptedAt = msg.payload.acceptedAt;
+            if (msg.payload.completedAt) order.completedAt = msg.payload.completedAt;
+            Storage.saveOrders(orders);
+            if (State.currentView === 'management') {
+              Render.orderList();
+              Render.orderFilters();
+            } else {
+              // 女朋友端也能收到状态更新通知
+              if (msg.payload.status === 'accepted') {
+                toast('🍳 饲养员开始制作啦~', 'success');
+              } else if (msg.payload.status === 'completed') {
+                toast('✅ 投喂完成，快来享用！', 'success');
+              }
+            }
+          }
+          break;
+        }
+        case 'menu-update': {
+          // 菜品库更新
+          if (msg.payload?.menu) {
+            Storage.saveMenu(msg.payload.menu);
+            if (State.currentView === 'ordering') Render.menuGrid();
+            else if (State.mgmtTab === 'menu') Render.menuMgmtList();
+          }
+          break;
+        }
+        case 'clients-count':
+          // 可忽略，仅调试用
+          break;
+        case 'welcome':
+          console.log(`[WS] 已连接，在线客户端: ${msg.payload?.clientsCount || 0}`);
+          break;
+      }
+    },
+
+    notifyOrderNew(order) {
+      this.send({ type: 'order-new', payload: { order } });
+    },
+
+    notifyOrderUpdate(orderId, status, extra = {}) {
+      this.send({ type: 'order-update', payload: { orderId, status, ...extra } });
+    },
+
+    notifyMenuUpdate() {
+      const menu = Storage.getMenu();
+      this.send({ type: 'menu-update', payload: { menu } });
+    },
+
+    setDot(state) {
+      const dot = document.getElementById('wsDot');
+      if (dot) {
+        dot.className = 'ws-dot ' + state;
+      }
+    }
+  };
+
+  // ============================================================
+  // BOOTSTRAP
+  // ============================================================
+  Storage.seedIfEmpty();
+  Render.categoryTabs();
+  Render.menuGrid();
+  Render.cartPanel();
+
+  // 启动 WebSocket 连接
+  WSClient.connect();
+
+  console.log('🍜 今日投喂 · 专属点单 已就绪');
+  console.log('   🐱 点菜端 — 浏览菜单、加入购物车、投喂申请');
+  console.log('   👨‍🍳 管理端 — 查看订单、制作投喂、菜品管理');
+  console.log('   📡 WebSocket 实时通知已启用');
+  console.log('   💾 数据存储在浏览器 LocalStorage');
+})();
+</script>
+</body>
+</html>

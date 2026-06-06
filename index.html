@@ -1115,13 +1115,11 @@ img { max-width: 100%; display: block; }
 
     async saveMenu(arr) {
       _menuCache = arr;
-      if (_useCloud) {
-        try {
-          const obj = {};
-          arr.forEach(item => { obj[item.id] = item; });
-          await db.ref('menuItems').set(obj);
-        } catch(e) { /* fallback below */ }
-      }
+      try {
+        const obj = {};
+        arr.forEach(item => { obj[item.id] = item; });
+        await db.ref('menuItems').set(obj);
+      } catch(e) { /* Firebase not available, local fallback */ }
       LStore.saveMenu(arr);
     },
 
@@ -1130,18 +1128,14 @@ img { max-width: 100%; display: block; }
 
     async saveOrder(order) {
       _ordersCache.push(order);
-      if (_useCloud) {
-        try { await db.ref('orders/' + order.id).set(order); } catch(e) {}
-      }
+      try { await db.ref('orders/' + order.id).set(order); } catch(e) {}
       LStore.saveOrders(_ordersCache);
     },
 
     async updateOrder(order) {
       const idx = _ordersCache.findIndex(o => o.id === order.id);
       if (idx >= 0) _ordersCache[idx] = order;
-      if (_useCloud) {
-        try { await db.ref('orders/' + order.id).set(order); } catch(e) {}
-      }
+      try { await db.ref('orders/' + order.id).set(order); } catch(e) {}
       LStore.saveOrders(_ordersCache);
     },
 
@@ -1180,8 +1174,9 @@ img { max-width: 100%; display: block; }
 
     // Subscribe to real-time updates (Firebase only)
     subscribe() {
-      if (!_useCloud) return;
+      console.log('[Firebase] 开始实时监听...');
 
+      // Pull latest data + subscribe
       db.ref('menuItems').on('value', (snap) => {
         const data = snap.val();
         if (data) {
@@ -2296,44 +2291,28 @@ img { max-width: 100%; display: block; }
   // BOOTSTRAP
   // ============================================================
   async function bootstrap() {
-    // Try Firebase first
-    try {
-      const testSnap = await Promise.race([
-        db.ref('.info/connected').once('value'),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
-      ]);
-      if (testSnap.val() === true) {
-        _useCloud = true;
-        console.log('[Firebase] ☁️ 云端已连接');
-      }
-    } catch(e) {
-      console.warn('[Firebase] 连接超时，使用本地存储模式');
-      _useCloud = false;
-    }
-
+    // 先用本地数据渲染（秒开不白屏）
     await Storage.seedIfNeeded();
-
-    if (_useCloud) {
-      Storage.subscribe();
-    }
-
     Render.categoryTabs();
     Render.menuGrid();
     Render.cartPanel();
 
-    const dot = document.getElementById('wsDot');
-    if (dot) {
-      if (_useCloud) {
-        dot.className = 'ws-dot connected';
-        dot.title = '☁️ Firebase 实时同步';
-      } else {
-        dot.className = 'ws-dot disconnected';
-        dot.title = '💾 本地存储模式（Firebase 未连接）';
+    // 后台尝试连接 Firebase
+    db.ref('.info/connected').on('value', (snap) => {
+      const connected = snap.val() === true;
+      const dot = document.getElementById('wsDot');
+      if (connected && !_useCloud) {
+        _useCloud = true;
+        console.log('[Firebase] ☁️ 实时同步已连接');
+        Storage.subscribe();
+        if (dot) { dot.className = 'ws-dot connected'; dot.title = '☁️ Firebase 实时同步'; }
+        toast('☁️ 实时同步已连接', 'success');
+      } else if (!connected) {
+        if (dot) { dot.className = 'ws-dot disconnected'; dot.title = '💾 本地模式'; }
       }
-    }
+    });
 
     console.log('🍜 今日投喂 · 专属点单 已就绪');
-    console.log(_useCloud ? '   ☁️ Firebase 实时同步' : '   💾 本地存储模式');
   }
   bootstrap();
 })();

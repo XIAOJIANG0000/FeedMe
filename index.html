@@ -1089,42 +1089,40 @@ img { max-width: 100%; display: block; }
   ];
 
   // ============================================================
-  // STORAGE (Firebase Realtime Database)
+  // STORAGE (Firebase + localStorage fallback)
   // ============================================================
-  // Local cache for instant UI, synced with Firebase
   let _menuCache = [];
   let _ordersCache = [];
+  let _useCloud = false; // true if Firebase is reachable
+
+  // localStorage helpers (fallback)
+  const LStore = {
+    getMenu() { try { const r = localStorage.getItem('menuItems'); return r ? JSON.parse(r) : null; } catch(e) { return null; } },
+    saveMenu(arr) { localStorage.setItem('menuItems', JSON.stringify(arr)); },
+    getOrders() { try { const r = localStorage.getItem('orders'); return r ? JSON.parse(r) : []; } catch(e) { return []; } },
+    saveOrders(arr) { localStorage.setItem('orders', JSON.stringify(arr)); }
+  };
 
   const Storage = {
     genId(prefix) {
       return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
     },
 
+    useCloud() { return _useCloud; },
+
     // Menu
     getMenuCached() { return _menuCache; },
 
     async saveMenu(arr) {
       _menuCache = arr;
-      // Convert array to object keyed by id for Firebase
-      const obj = {};
-      arr.forEach(item => { obj[item.id] = item; });
-      await db.ref('menuItems').set(obj);
-    },
-
-    async addMenuItem(item) {
-      _menuCache.push(item);
-      await db.ref('menuItems/' + item.id).set(item);
-    },
-
-    async updateMenuItem(item) {
-      const idx = _menuCache.findIndex(m => m.id === item.id);
-      if (idx >= 0) _menuCache[idx] = item;
-      await db.ref('menuItems/' + item.id).set(item);
-    },
-
-    async deleteMenuItem(id) {
-      _menuCache = _menuCache.filter(m => m.id !== id);
-      await db.ref('menuItems/' + id).remove();
+      if (_useCloud) {
+        try {
+          const obj = {};
+          arr.forEach(item => { obj[item.id] = item; });
+          await db.ref('menuItems').set(obj);
+        } catch(e) { /* fallback below */ }
+      }
+      LStore.saveMenu(arr);
     },
 
     // Orders
@@ -1132,19 +1130,39 @@ img { max-width: 100%; display: block; }
 
     async saveOrder(order) {
       _ordersCache.push(order);
-      await db.ref('orders/' + order.id).set(order);
+      if (_useCloud) {
+        try { await db.ref('orders/' + order.id).set(order); } catch(e) {}
+      }
+      LStore.saveOrders(_ordersCache);
     },
 
     async updateOrder(order) {
       const idx = _ordersCache.findIndex(o => o.id === order.id);
       if (idx >= 0) _ordersCache[idx] = order;
-      await db.ref('orders/' + order.id).set(order);
+      if (_useCloud) {
+        try { await db.ref('orders/' + order.id).set(order); } catch(e) {}
+      }
+      LStore.saveOrders(_ordersCache);
     },
 
     async seedIfNeeded() {
-      const snap = await db.ref('menuItems').once('value');
-      if (!snap.exists()) {
-        const items = SEED_DATA.map((d, i) => ({
+      if (_useCloud) {
+        try {
+          const snap = await db.ref('menuItems').once('value');
+          if (snap.exists()) {
+            _menuCache = Object.values(snap.val());
+            return;
+          }
+        } catch(e) {
+          console.warn('[Firebase] 读取失败，使用本地存储:', e.message);
+          _useCloud = false;
+        }
+      }
+
+      // Fallback: localStorage
+      let menu = LStore.getMenu();
+      if (!menu || menu.length === 0) {
+        menu = SEED_DATA.map((d, i) => ({
           id: this.genId('m'),
           name: d.name,
           category: d.category,
@@ -1154,66 +1172,54 @@ img { max-width: 100%; display: block; }
           isAvailable: true,
           createdAt: Date.now() - (SEED_DATA.length - i) * 60000
         }));
-        await this.saveMenu(items);
+        LStore.saveMenu(menu);
       }
+      _menuCache = menu;
+      _ordersCache = LStore.getOrders();
     },
 
-    // Subscribe to real-time updates from Firebase
+    // Subscribe to real-time updates (Firebase only)
     subscribe() {
-      // Menu listener
+      if (!_useCloud) return;
+
       db.ref('menuItems').on('value', (snap) => {
         const data = snap.val();
-        _menuCache = data ? Object.values(data) : [];
-        if (State.currentView === 'ordering') {
-          Render.menuGrid();
-        } else if (State.currentView === 'management' && State.mgmtTab === 'menu') {
-          Render.menuMgmtList();
+        if (data) {
+          _menuCache = Object.values(data);
+          LStore.saveMenu(_menuCache);
+          if (State.currentView === 'ordering') Render.menuGrid();
+          else if (State.mgmtTab === 'menu') Render.menuMgmtList();
         }
       });
 
-      // Orders listener
       db.ref('orders').on('value', (snap) => {
         const data = snap.val();
         const oldLen = _ordersCache.length;
         _ordersCache = data ? Object.values(data) : [];
+        LStore.saveOrders(_ordersCache);
         const newLen = _ordersCache.length;
 
-        // New order notification (for management view)
         if (newLen > oldLen && oldLen > 0) {
           if (State.currentView === 'management' && State.mgmtTab === 'orders') {
-            Render.orderList();
-            Render.orderFilters();
+            Render.orderList(); Render.orderFilters();
           }
           toast('🍜 收到新的投喂请求！', 'info');
         }
-
-        // Status update notification (order modified, not added)
-        if (newLen === oldLen && oldLen > 0) {
-          const newOrders = _ordersCache;
-          const oldOrders = data ? Object.values(data) : [];
-          // Check for status changes and notify
-          if (State.currentView === 'management') {
-            Render.orderList();
-            Render.orderFilters();
-          } else {
-            // Girlfriend side: check for status updates
-            newOrders.forEach(no => {
-              if (no.status === 'accepted' && !no._notifiedAccepted) {
-                toast('🍳 饲养员开始制作啦~', 'success');
-                db.ref('orders/' + no.id + '/_notifiedAccepted').set(true);
-              }
-              if (no.status === 'completed' && !no._notifiedCompleted) {
-                toast('✅ 投喂完成，快来享用！', 'success');
-                db.ref('orders/' + no.id + '/_notifiedCompleted').set(true);
-              }
-            });
-          }
+        if (State.currentView === 'management') {
+          Render.orderList(); Render.orderFilters();
+        } else {
+          _ordersCache.forEach(no => {
+            if (no.status === 'accepted' && !no._notifiedAccepted) {
+              toast('🍳 饲养员开始制作啦~', 'success');
+              if (_useCloud) db.ref('orders/' + no.id + '/_notifiedAccepted').set(true);
+            }
+            if (no.status === 'completed' && !no._notifiedCompleted) {
+              toast('✅ 投喂完成，快来享用！', 'success');
+              if (_useCloud) db.ref('orders/' + no.id + '/_notifiedCompleted').set(true);
+            }
+          });
         }
-
-        // Update history if visible
-        if (State.mgmtTab === 'history') {
-          Render.historyList();
-        }
+        if (State.mgmtTab === 'history') Render.historyList();
       });
     }
   };
@@ -2290,32 +2296,44 @@ img { max-width: 100%; display: block; }
   // BOOTSTRAP
   // ============================================================
   async function bootstrap() {
-    await Storage.seedIfNeeded();
-    await new Promise(resolve => {
-      // Wait for initial data load from Firebase
-      db.ref('menuItems').once('value', () => {
-        db.ref('orders').once('value', () => resolve());
-      });
-    });
+    // Try Firebase first
+    try {
+      const testSnap = await Promise.race([
+        db.ref('.info/connected').once('value'),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+      ]);
+      if (testSnap.val() === true) {
+        _useCloud = true;
+        console.log('[Firebase] ☁️ 云端已连接');
+      }
+    } catch(e) {
+      console.warn('[Firebase] 连接超时，使用本地存储模式');
+      _useCloud = false;
+    }
 
-    // Subscribe to real-time updates
-    Storage.subscribe();
+    await Storage.seedIfNeeded();
+
+    if (_useCloud) {
+      Storage.subscribe();
+    }
 
     Render.categoryTabs();
     Render.menuGrid();
     Render.cartPanel();
 
-    // Firebase connection indicator
     const dot = document.getElementById('wsDot');
     if (dot) {
-      dot.className = 'ws-dot connected';
-      dot.title = '☁️ Firebase 实时同步已连接';
+      if (_useCloud) {
+        dot.className = 'ws-dot connected';
+        dot.title = '☁️ Firebase 实时同步';
+      } else {
+        dot.className = 'ws-dot disconnected';
+        dot.title = '💾 本地存储模式（Firebase 未连接）';
+      }
     }
 
     console.log('🍜 今日投喂 · 专属点单 已就绪');
-    console.log('   🐱 点菜端 — 浏览菜单、加入购物车、投喂申请');
-    console.log('   👨‍🍳 管理端 — 查看订单、制作投喂、菜品管理');
-    console.log('   ☁️ Firebase 实时同步已启用');
+    console.log(_useCloud ? '   ☁️ Firebase 实时同步' : '   💾 本地存储模式');
   }
   bootstrap();
 })();

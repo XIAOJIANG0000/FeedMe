@@ -9,6 +9,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
 /* ============================================================
    CSS Custom Properties
@@ -1018,6 +1020,15 @@ img { max-width: 100%; display: block; }
   'use strict';
 
   // ============================================================
+  // FIREBASE INIT
+  // ============================================================
+  const firebaseConfig = {
+    databaseURL: 'https://feedme-d1520-default-rtdb.firebaseio.com/'
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  // ============================================================
   // CONSTANTS
   // ============================================================
   const CATEGORIES = ['全部', '荤菜', '素菜', '主食', '甜品', '饮品'];
@@ -1078,34 +1089,61 @@ img { max-width: 100%; display: block; }
   ];
 
   // ============================================================
-  // STORAGE
+  // STORAGE (Firebase Realtime Database)
   // ============================================================
+  // Local cache for instant UI, synced with Firebase
+  let _menuCache = [];
+  let _ordersCache = [];
+
   const Storage = {
-    getMenu() {
-      try {
-        const raw = localStorage.getItem('menuItems');
-        return raw ? JSON.parse(raw) : null;
-      } catch(e) { return null; }
-    },
-    saveMenu(arr) {
-      localStorage.setItem('menuItems', JSON.stringify(arr));
-    },
-    getOrders() {
-      try {
-        const raw = localStorage.getItem('orders');
-        return raw ? JSON.parse(raw) : [];
-      } catch(e) { return []; }
-    },
-    saveOrders(arr) {
-      localStorage.setItem('orders', JSON.stringify(arr));
-    },
     genId(prefix) {
       return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
     },
-    seedIfEmpty() {
-      const currentVersion = 2;
-      const storedVersion = parseInt(localStorage.getItem('dataVersion') || '0', 10);
-      if (storedVersion < currentVersion) {
+
+    // Menu
+    getMenuCached() { return _menuCache; },
+
+    async saveMenu(arr) {
+      _menuCache = arr;
+      // Convert array to object keyed by id for Firebase
+      const obj = {};
+      arr.forEach(item => { obj[item.id] = item; });
+      await db.ref('menuItems').set(obj);
+    },
+
+    async addMenuItem(item) {
+      _menuCache.push(item);
+      await db.ref('menuItems/' + item.id).set(item);
+    },
+
+    async updateMenuItem(item) {
+      const idx = _menuCache.findIndex(m => m.id === item.id);
+      if (idx >= 0) _menuCache[idx] = item;
+      await db.ref('menuItems/' + item.id).set(item);
+    },
+
+    async deleteMenuItem(id) {
+      _menuCache = _menuCache.filter(m => m.id !== id);
+      await db.ref('menuItems/' + id).remove();
+    },
+
+    // Orders
+    getOrdersCached() { return _ordersCache; },
+
+    async saveOrder(order) {
+      _ordersCache.push(order);
+      await db.ref('orders/' + order.id).set(order);
+    },
+
+    async updateOrder(order) {
+      const idx = _ordersCache.findIndex(o => o.id === order.id);
+      if (idx >= 0) _ordersCache[idx] = order;
+      await db.ref('orders/' + order.id).set(order);
+    },
+
+    async seedIfNeeded() {
+      const snap = await db.ref('menuItems').once('value');
+      if (!snap.exists()) {
         const items = SEED_DATA.map((d, i) => ({
           id: this.genId('m'),
           name: d.name,
@@ -1116,27 +1154,68 @@ img { max-width: 100%; display: block; }
           isAvailable: true,
           createdAt: Date.now() - (SEED_DATA.length - i) * 60000
         }));
-        this.saveMenu(items);
-        localStorage.setItem('dataVersion', String(currentVersion));
-        return;
-      }
-      if (!this.getMenu()) {
-        const items = SEED_DATA.map((d, i) => ({
-          id: this.genId('m'),
-          name: d.name,
-          category: d.category,
-          price: d.price,
-          image: d.image || '',
-          description: d.description || '',
-          isAvailable: true,
-          createdAt: Date.now() - (SEED_DATA.length - i) * 60000
-        }));
-        this.saveMenu(items);
-        localStorage.setItem('dataVersion', String(currentVersion));
+        await this.saveMenu(items);
       }
     },
-    // For image loading errors, we don't need special handling
-    // Cards will fallback to emoji placeholders
+
+    // Subscribe to real-time updates from Firebase
+    subscribe() {
+      // Menu listener
+      db.ref('menuItems').on('value', (snap) => {
+        const data = snap.val();
+        _menuCache = data ? Object.values(data) : [];
+        if (State.currentView === 'ordering') {
+          Render.menuGrid();
+        } else if (State.currentView === 'management' && State.mgmtTab === 'menu') {
+          Render.menuMgmtList();
+        }
+      });
+
+      // Orders listener
+      db.ref('orders').on('value', (snap) => {
+        const data = snap.val();
+        const oldLen = _ordersCache.length;
+        _ordersCache = data ? Object.values(data) : [];
+        const newLen = _ordersCache.length;
+
+        // New order notification (for management view)
+        if (newLen > oldLen && oldLen > 0) {
+          if (State.currentView === 'management' && State.mgmtTab === 'orders') {
+            Render.orderList();
+            Render.orderFilters();
+          }
+          toast('🍜 收到新的投喂请求！', 'info');
+        }
+
+        // Status update notification (order modified, not added)
+        if (newLen === oldLen && oldLen > 0) {
+          const newOrders = _ordersCache;
+          const oldOrders = data ? Object.values(data) : [];
+          // Check for status changes and notify
+          if (State.currentView === 'management') {
+            Render.orderList();
+            Render.orderFilters();
+          } else {
+            // Girlfriend side: check for status updates
+            newOrders.forEach(no => {
+              if (no.status === 'accepted' && !no._notifiedAccepted) {
+                toast('🍳 饲养员开始制作啦~', 'success');
+                db.ref('orders/' + no.id + '/_notifiedAccepted').set(true);
+              }
+              if (no.status === 'completed' && !no._notifiedCompleted) {
+                toast('✅ 投喂完成，快来享用！', 'success');
+                db.ref('orders/' + no.id + '/_notifiedCompleted').set(true);
+              }
+            });
+          }
+        }
+
+        // Update history if visible
+        if (State.mgmtTab === 'history') {
+          Render.historyList();
+        }
+      });
+    }
   };
 
   // ============================================================
@@ -1274,7 +1353,7 @@ img { max-width: 100%; display: block; }
 
     // --- Menu Grid ---
     menuGrid() {
-      const menu = Storage.getMenu();
+      const menu = Storage.getMenuCached();
       const available = menu.filter(m => m.isAvailable);
       const filtered = State.categoryFilter === '全部'
         ? available
@@ -1374,7 +1453,7 @@ img { max-width: 100%; display: block; }
 
     // --- Random Picker ---
     randomPick() {
-      const menu = Storage.getMenu();
+      const menu = Storage.getMenuCached();
       const available = menu.filter(m => m.isAvailable);
       if (available.length === 0) {
         toast('菜品库为空，请先添加菜品', 'error');
@@ -1434,7 +1513,7 @@ img { max-width: 100%; display: block; }
     // --- Order Filters ---
     orderFilters() {
       const container = document.getElementById('orderFilters');
-      const orders = Storage.getOrders();
+      const orders = Storage.getOrdersCached();
       const counts = {};
       ORDER_STATUS.forEach(s => {
         counts[s.key] = orders.filter(o => o.status === s.key).length;
@@ -1453,7 +1532,7 @@ img { max-width: 100%; display: block; }
     orderList() {
       const container = document.getElementById('orderList');
       const empty = document.getElementById('orderEmpty');
-      const orders = Storage.getOrders();
+      const orders = Storage.getOrdersCached();
       const filtered = State.orderFilter === 'all'
         ? orders
         : orders.filter(o => o.status === State.orderFilter);
@@ -1512,7 +1591,7 @@ img { max-width: 100%; display: block; }
     menuMgmtList() {
       const container = document.getElementById('menuMgmtList');
       const empty = document.getElementById('menuMgmtEmpty');
-      const menu = Storage.getMenu();
+      const menu = Storage.getMenuCached();
 
       if (menu.length === 0) {
         container.innerHTML = '';
@@ -1608,7 +1687,7 @@ img { max-width: 100%; display: block; }
     historyList() {
       const container = document.getElementById('historyList');
       const empty = document.getElementById('historyEmpty');
-      const orders = Storage.getOrders();
+      const orders = Storage.getOrdersCached();
       const completed = orders.filter(o => o.status === 'completed' || o.status === 'cancelled');
 
       if (completed.length === 0) {
@@ -1747,7 +1826,7 @@ img { max-width: 100%; display: block; }
       case 'add-to-cart-menu':
       case 'add-to-cart-btn': {
         const menuId = target.dataset.id;
-        const menu = Storage.getMenu();
+        const menu = Storage.getMenuCached();
         const item = menu.find(m => m.id === menuId);
         if (item && item.isAvailable) {
           State.addToCart(item);
@@ -1797,14 +1876,11 @@ img { max-width: 100%; display: block; }
           acceptedAt: null,
           completedAt: null
         };
-        const orders = Storage.getOrders();
-        orders.push(order);
-        Storage.saveOrders(orders);
+        Storage.saveOrder(order);
         State.clearCart();
         Render.cartPanel();
         Render.cartVisibility(false);
         Render.menuGrid();
-        WSClient.notifyOrderNew(order);
         toast('✨ 投喂申请已发送，等待饲养员处理...', 'success');
         break;
       }
@@ -1849,7 +1925,7 @@ img { max-width: 100%; display: block; }
 
       case 'random-pick-confirm': {
         const menuId = target.dataset.id;
-        const menu = Storage.getMenu();
+        const menu = Storage.getMenuCached();
         const item = menu.find(m => m.id === menuId);
         if (item && item.isAvailable) {
           State.addToCart(item);
@@ -1883,30 +1959,28 @@ img { max-width: 100%; display: block; }
 
       // --- Order Management ---
       case 'accept-order': {
-        const orders = Storage.getOrders();
+        const orders = Storage.getOrdersCached();
         const order = orders.find(o => o.id === target.dataset.id);
         if (order) {
           order.status = 'accepted';
           order.acceptedAt = Date.now();
-          Storage.saveOrders(orders);
+          Storage.updateOrder(order);
           Render.orderList();
           Render.orderFilters();
-          WSClient.notifyOrderUpdate(order.id, 'accepted', { acceptedAt: order.acceptedAt });
           toast('🍳 开始制作，马上就好~', 'info');
         }
         break;
       }
 
       case 'complete-order': {
-        const orders = Storage.getOrders();
+        const orders = Storage.getOrdersCached();
         const order = orders.find(o => o.id === target.dataset.id);
         if (order) {
           order.status = 'completed';
           order.completedAt = Date.now();
-          Storage.saveOrders(orders);
+          Storage.updateOrder(order);
           Render.orderList();
           Render.orderFilters();
-          WSClient.notifyOrderUpdate(order.id, 'completed', { completedAt: order.completedAt });
           toast('✅ 投喂完成，请享用~', 'success');
         }
         break;
@@ -1915,11 +1989,11 @@ img { max-width: 100%; display: block; }
       case 'cancel-order': {
         const orderId = target.dataset.id;
         Render.showConfirm('确定要取消这个订单吗？', () => {
-          const orders = Storage.getOrders();
+          const orders = Storage.getOrdersCached();
           const order = orders.find(o => o.id === orderId);
           if (order) {
             order.status = 'cancelled';
-            Storage.saveOrders(orders);
+            Storage.updateOrder(order);
             Render.orderList();
             Render.orderFilters();
             toast('订单已取消', 'info');
@@ -1930,10 +2004,10 @@ img { max-width: 100%; display: block; }
 
       // --- Reorder ---
       case 'reorder': {
-        const orders = Storage.getOrders();
+        const orders = Storage.getOrdersCached();
         const order = orders.find(o => o.id === target.dataset.id);
         if (order) {
-          const menu = Storage.getMenu();
+          const menu = Storage.getMenuCached();
           order.items.forEach(it => {
             const menuItem = menu.find(m => m.id === it.menuId);
             if (menuItem && menuItem.isAvailable) {
@@ -1986,7 +2060,7 @@ img { max-width: 100%; display: block; }
         }
         const price = Math.round(parseFloat(priceStr) * 100) / 100;
 
-        const menu = Storage.getMenu();
+        const menu = Storage.getMenuCached();
         const editId = document.getElementById('formEditId').value;
 
         if (editId) {
@@ -2011,7 +2085,6 @@ img { max-width: 100%; display: block; }
         }
 
         Storage.saveMenu(menu);
-        WSClient.notifyMenuUpdate();
         Render.closeModal();
         Render.menuMgmtList();
         Render.menuGrid();
@@ -2020,7 +2093,7 @@ img { max-width: 100%; display: block; }
       }
 
       case 'edit-menu-item': {
-        const menu = Storage.getMenu();
+        const menu = Storage.getMenuCached();
         const item = menu.find(m => m.id === target.dataset.id);
         if (item) Render.openModal('edit', item);
         break;
@@ -2028,15 +2101,14 @@ img { max-width: 100%; display: block; }
 
       case 'delete-menu-item': {
         const itemId = target.dataset.id;
-        const menu = Storage.getMenu();
+        const menu = Storage.getMenuCached();
         const item = menu.find(m => m.id === itemId);
         if (!item) return;
         Render.showConfirm(`确定要删除「${item.name}」吗？删除后可在订单历史中查看过往记录。`, () => {
-          const menu = Storage.getMenu();
+          const menu = Storage.getMenuCached();
           const filtered = menu.filter(m => m.id !== itemId);
           Storage.saveMenu(filtered);
-          WSClient.notifyMenuUpdate();
-          Render.menuMgmtList();
+                    Render.menuMgmtList();
           Render.menuGrid();
           toast(`「${item.name}」已删除`, 'info');
         });
@@ -2044,13 +2116,12 @@ img { max-width: 100%; display: block; }
       }
 
       case 'toggle-available': {
-        const menu = Storage.getMenu();
+        const menu = Storage.getMenuCached();
         const item = menu.find(m => m.id === target.dataset.id);
         if (item) {
           item.isAvailable = !item.isAvailable;
           Storage.saveMenu(menu);
-          WSClient.notifyMenuUpdate();
-          Render.menuMgmtList();
+                    Render.menuMgmtList();
           Render.menuGrid();
           toast(item.isAvailable ? `「${item.name}」已上架` : `「${item.name}」已下架`, 'info');
         }
@@ -2216,165 +2287,37 @@ img { max-width: 100%; display: block; }
 
   // ============================================================
   // ============================================================
-  // WEBSOCKET CLIENT (Real-time Notifications)
-  // ============================================================
-  const WS_URL = `ws://${window.location.hostname}:3456`;
-  let ws = null;
-  let wsReconnectTimer = null;
-
-  const WSClient = {
-    connect() {
-      if (ws && ws.readyState === WebSocket.OPEN) return;
-      try {
-        ws = new WebSocket(WS_URL);
-      } catch(e) {
-        console.log('[WS] 连接失败，稍后重试...');
-        this.scheduleReconnect();
-        return;
-      }
-
-      ws.onopen = () => {
-        console.log('[WS] ✅ 已连接到通知服务器');
-        this.setDot('connected');
-        if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
-        // 根据当前视图声明角色
-        const role = PinManager.isUnlocked() ? 'boyfriend' : 'girlfriend';
-        this.send({ type: 'set-role', payload: { role } });
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data);
-          this.handle(msg);
-        } catch(e) {}
-      };
-
-      ws.onclose = () => {
-        console.log('[WS] 连接断开');
-        this.setDot('disconnected');
-        this.scheduleReconnect();
-      };
-
-      ws.onerror = () => {
-        this.setDot('disconnected');
-      };
-
-      ws.onerror = () => {
-        // 静默处理，onclose 会触发重连
-      };
-    },
-
-    scheduleReconnect() {
-      if (wsReconnectTimer) return;
-      wsReconnectTimer = setTimeout(() => {
-        wsReconnectTimer = null;
-        WSClient.connect();
-      }, 3000);
-    },
-
-    send(msg) {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(msg));
-      }
-    },
-
-    handle(msg) {
-      switch (msg.type) {
-        case 'order-new': {
-          // 有新订单 → 同步到 localStorage
-          const orders = Storage.getOrders();
-          if (msg.payload && msg.payload.order) {
-            const exists = orders.find(o => o.id === msg.payload.order.id);
-            if (!exists) {
-              orders.push(msg.payload.order);
-              Storage.saveOrders(orders);
-              if (State.currentView === 'management' && State.mgmtTab === 'orders') {
-                Render.orderList();
-                Render.orderFilters();
-              }
-              toast('🍜 收到新的投喂请求！', 'info');
-            }
-          }
-          break;
-        }
-        case 'order-update': {
-          // 订单状态更新 → 同步
-          const orders = Storage.getOrders();
-          const order = orders.find(o => o.id === msg.payload?.orderId);
-          if (order && msg.payload?.status) {
-            order.status = msg.payload.status;
-            if (msg.payload.acceptedAt) order.acceptedAt = msg.payload.acceptedAt;
-            if (msg.payload.completedAt) order.completedAt = msg.payload.completedAt;
-            Storage.saveOrders(orders);
-            if (State.currentView === 'management') {
-              Render.orderList();
-              Render.orderFilters();
-            } else {
-              // 女朋友端也能收到状态更新通知
-              if (msg.payload.status === 'accepted') {
-                toast('🍳 饲养员开始制作啦~', 'success');
-              } else if (msg.payload.status === 'completed') {
-                toast('✅ 投喂完成，快来享用！', 'success');
-              }
-            }
-          }
-          break;
-        }
-        case 'menu-update': {
-          // 菜品库更新
-          if (msg.payload?.menu) {
-            Storage.saveMenu(msg.payload.menu);
-            if (State.currentView === 'ordering') Render.menuGrid();
-            else if (State.mgmtTab === 'menu') Render.menuMgmtList();
-          }
-          break;
-        }
-        case 'clients-count':
-          // 可忽略，仅调试用
-          break;
-        case 'welcome':
-          console.log(`[WS] 已连接，在线客户端: ${msg.payload?.clientsCount || 0}`);
-          break;
-      }
-    },
-
-    notifyOrderNew(order) {
-      this.send({ type: 'order-new', payload: { order } });
-    },
-
-    notifyOrderUpdate(orderId, status, extra = {}) {
-      this.send({ type: 'order-update', payload: { orderId, status, ...extra } });
-    },
-
-    notifyMenuUpdate() {
-      const menu = Storage.getMenu();
-      this.send({ type: 'menu-update', payload: { menu } });
-    },
-
-    setDot(state) {
-      const dot = document.getElementById('wsDot');
-      if (dot) {
-        dot.className = 'ws-dot ' + state;
-      }
-    }
-  };
-
-  // ============================================================
   // BOOTSTRAP
   // ============================================================
-  Storage.seedIfEmpty();
-  Render.categoryTabs();
-  Render.menuGrid();
-  Render.cartPanel();
+  async function bootstrap() {
+    await Storage.seedIfNeeded();
+    await new Promise(resolve => {
+      // Wait for initial data load from Firebase
+      db.ref('menuItems').once('value', () => {
+        db.ref('orders').once('value', () => resolve());
+      });
+    });
 
-  // 启动 WebSocket 连接
-  WSClient.connect();
+    // Subscribe to real-time updates
+    Storage.subscribe();
 
-  console.log('🍜 今日投喂 · 专属点单 已就绪');
-  console.log('   🐱 点菜端 — 浏览菜单、加入购物车、投喂申请');
-  console.log('   👨‍🍳 管理端 — 查看订单、制作投喂、菜品管理');
-  console.log('   📡 WebSocket 实时通知已启用');
-  console.log('   💾 数据存储在浏览器 LocalStorage');
+    Render.categoryTabs();
+    Render.menuGrid();
+    Render.cartPanel();
+
+    // Firebase connection indicator
+    const dot = document.getElementById('wsDot');
+    if (dot) {
+      dot.className = 'ws-dot connected';
+      dot.title = '☁️ Firebase 实时同步已连接';
+    }
+
+    console.log('🍜 今日投喂 · 专属点单 已就绪');
+    console.log('   🐱 点菜端 — 浏览菜单、加入购物车、投喂申请');
+    console.log('   👨‍🍳 管理端 — 查看订单、制作投喂、菜品管理');
+    console.log('   ☁️ Firebase 实时同步已启用');
+  }
+  bootstrap();
 })();
 </script>
 </body>
